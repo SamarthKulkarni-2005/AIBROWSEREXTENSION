@@ -1,66 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Productivity Assistant</title>
-  <link rel="stylesheet" href="popup.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Productivity Extension</title>
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="container">
-    <header class="header">
-      <div class="logo">
-        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <h1>AI Assistant</h1>
-      </div>
-      <div class="header-actions">
-        <button id="darkModeBtn" class="icon-btn" title="Toggle Dark Mode">
-          <svg id="darkIcon" width="20" height="20" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a8 8 0 1 0 9.79 9.79Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
-        <button id="historyBtn" class="icon-btn" title="View History">
-          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 8V12L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/></svg>
-        </button>
-      </div>
-    </header>
-
-    <div id="mainView" class="view active">
-      <div class="input-section">
-        <label for="customPrompt" class="label">Ask a question or leave blank to summarize</label>
-        <textarea id="customPrompt" rows="3" placeholder="E.g., What are the key points? Explain this in simple terms..."></textarea>
-      </div>
-      <button id="summarizeBtn" class="btn-primary">
-        <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Generate</span>
+  <!-- Main View -->
+  <div id="mainView" class="view active">
+    <div class="view-header">
+      <h1>AI Productivity</h1>
+      <button id="darkModeBtn" class="btn-icon" title="Toggle Dark Mode">
+        <svg id="darkIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3a8 8 0 1 0 9.79 9.79Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
       </button>
-      <div id="loading" class="loading">
-        <div class="spinner"></div>
-        <span>Analyzing page...</span>
-      </div>
-      <div id="summaryActions" class="summary-actions">
-        <button id="copyBtn" class="icon-btn" title="Copy summary to clipboard">
-          <svg width="20" height="20" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"/><rect x="2" y="2" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"/></svg>
-        </button>
-        <span id="copyStatus" class="copy-status"></span>
-      </div>
-      <div id="summaryBox" class="summary-box" aria-live="polite"></div>
     </div>
 
-    <div id="historyView" class="view">
-      <div class="history-header">
-        <button id="backBtn" class="icon-btn">
-          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M19 12H5M12 19L5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <h2>History</h2>
-        <button id="clearHistoryBtn" class="text-btn">Clear All</button>
+    <div class="view-content">
+      <!-- Summarize Tab -->
+      <div class="tab-section">
+        <div class="input-group">
+          <input 
+            type="text" 
+            id="customPrompt" 
+            placeholder="Ask something about this page (optional)" 
+            class="prompt-input"
+          >
+          <button id="summarizeBtn" class="btn btn-primary">✨ Summarize</button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+          <div class="spinner"></div>
+          <p>Analyzing content...</p>
+        </div>
+
+        <div id="summaryBox" class="summary-box"></div>
+
+        <div id="summaryActions" class="summary-actions" style="display: none;">
+          <button id="copyBtn" class="btn btn-secondary">📋 Copy</button>
+          <span id="copyStatus" class="copy-status"></span>
+        </div>
       </div>
-      <div id="historyList" class="history-list"></div>
-      <div id="emptyHistory" class="empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 8V12L15 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <p>No history yet</p>
-        <span>Your summaries will appear here</span>
-      </div>
+    </div>
+
+    <div class="view-footer">
+      <button id="historyBtn" class="btn-nav" title="Summary History">📚 History</button>
+      <button id="analyticsBtn" class="btn-nav" title="Productivity Analytics">📊 Analytics</button>
+      <button id="teamDashboardBtn" class="btn-nav" title="Team Dashboard">👥 Team</button>
     </div>
   </div>
+
+  <!-- History View -->
+  <div id="historyView" class="view">
+    <div class="view-header">
+      <h2>Summary History</h2>
+      <button id="backBtn" class="btn-icon back-btn">←</button>
+    </div>
+
+    <div class="view-content">
+      <div id="emptyHistory" class="empty-state">
+        <p>No summaries yet</p>
+        <small>Your summary history will appear here</small>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </div>
+
+    <div class="view-footer">
+      <button id="clearHistoryBtn" class="btn btn-secondary btn-full-width">🗑️ Clear History</button>
+    </div>
+  </div>
+
+  <!-- Analytics View -->
+  <div id="analyticsView" class="view">
+    <div class="view-header">
+      <h2>Productivity Analytics</h2>
+      <button id="backFromAnalyticsBtn" class="btn-icon back-btn">←</button>
+    </div>
+
+    <div class="view-content">
+      <div class="analytics-toggle">
+        <label>
+          <input type="checkbox" id="trackingToggle">
+          <span>Enable Tracking</span>
+        </label>
+      </div>
+
+      <div id="trackingDisabled" class="empty-state" style="display: none;">
+        <p>⚠️ Tracking Disabled</p>
+        <small>Enable tracking to see your productivity analytics</small>
+      </div>
+
+      <div class="analytics-content" style="display: none;">
+        <!-- Stat Cards -->
+        <div class="analytics-stats">
+          <div class="stat-card">
+            <div class="stat-label">Productivity Score</div>
+            <div class="stat-value" id="productivityScore">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Productive Time</div>
+            <div class="stat-value" id="productiveTime">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Distractions</div>
+            <div class="stat-value" id="distractionCount">--</div>
+          </div>
+        </div>
+
+        <!-- Current Focus -->
+        <div class="analytics-section">
+          <h3>Current Focus</h3>
+          <div id="focusContent" class="analytics-box">No active session</div>
+        </div>
+
+        <!-- Peak Hours -->
+        <div class="analytics-section">
+          <h3>Peak Distraction Hours</h3>
+          <div id="peakHoursContent" class="analytics-box">No data yet</div>
+        </div>
+
+        <!-- Top Distractions -->
+        <div class="analytics-section">
+          <h3>Top Distractions</h3>
+          <div id="topDistractionsContent" class="analytics-box">No data yet</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view-footer">
+      <button id="clearAnalyticsBtn" class="btn btn-secondary btn-full-width">🗑️ Clear Data</button>
+    </div>
+  </div>
+
+  <!-- Team Dashboard View -->
+  <div id="teamDashboardView" class="view">
+    <div class="view-header">
+      <h2>Team Dashboard</h2>
+      <button id="backFromTeamBtn" class="btn-icon back-btn">←</button>
+    </div>
+
+    <div class="view-content">
+      <div id="teamLoading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Loading team data...</p>
+      </div>
+
+      <div id="teamStatsContent" class="team-stats-container"></div>
+    </div>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

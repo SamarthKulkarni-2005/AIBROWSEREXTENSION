@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AI Productivity Assistant",
-  "version": "1.0",
-  "description": "AI-powered webpage summarization and question answering",
+  "version": "2.0",
+  "description": "AI-powered webpage summarization, question answering, and productivity tracking",
 
   "action": {
     "default_popup": "popup/popup.html",
@@ -13,7 +13,7 @@
     }
   },
 
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
 
   "background": {
     "service_worker": "background.js"
