@@ -7,7 +7,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'ngrok-skip-browser-warning'],
+  credentials: true
+}));
+
+
 app.use(express.json());
 
 // Connect to MongoDB
@@ -203,9 +210,10 @@ app.get('/api/health', (req, res) => {
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Backend running on http://localhost:${PORT}`);
-  console.log(`🌐 Network: http://192.168.1.2:${PORT}`);
-  console.log(`📊 Database: ${process.env.MONGODB_URI || 'mongodb://localhost:27017/ai-extension'}`);
-  console.log(`🔗 Visit http://localhost:${PORT} to see available endpoints`);
+  console.log(`Backend running on http://localhost:${PORT}`);
+  console.log(`Network: http://192.168.1.2:${PORT}`);
+  console.log(`Database: ${process.env.MONGODB_URI || 'mongodb://localhost:27017/ai-extension'}`);
+  console.log(`Visit http://localhost:${PORT} to see available endpoints`);
 });
+
 
