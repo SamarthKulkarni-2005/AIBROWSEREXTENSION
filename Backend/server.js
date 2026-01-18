@@ -202,8 +202,8 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Backend running on http://localhost:${PORT}`);
-  console.log(`📊 Database: ${process.env.MONGODB_URI || 'mongodb://localhost:27017/ai-extension'}`);
-  console.log(`🔗 Visit http://localhost:${PORT} to see available endpoints`);
+  console.log(`🌐 Network: 172.17.64.1:${PORT}`);
+  // ...
 });

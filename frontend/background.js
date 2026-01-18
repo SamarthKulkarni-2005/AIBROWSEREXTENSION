@@ -1,5 +1,6 @@
-const API_KEY = "AIzaSyCKRnsILo_LntoTcT3zcevlhj0IqtCthkE";
+const API_KEY = "AIzaSyD4GZf_HUqCFKdtmMF_pXRPaovcyqmIiT4";
 const BACKEND_URL = "http://localhost:3000";
+
 
 // Cache for page classifications to reduce API calls
 const classificationCache = new Map();
@@ -7,20 +8,20 @@ const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
 // Known site categories for instant classification (no API needed)
 const KNOWN_SITES = {
-  'youtube.com': { category: 'entertainment', difficulty: 'easy', isDistraction: true },
-  'facebook.com': { category: 'social', difficulty: 'easy', isDistraction: true },
-  'instagram.com': { category: 'social', difficulty: 'easy', isDistraction: true },
-  'twitter.com': { category: 'social', difficulty: 'easy', isDistraction: true },
-  'x.com': { category: 'social', difficulty: 'easy', isDistraction: true },
-  'reddit.com': { category: 'social', difficulty: 'medium', isDistraction: true },
-  'netflix.com': { category: 'entertainment', difficulty: 'easy', isDistraction: true },
-  'tiktok.com': { category: 'entertainment', difficulty: 'easy', isDistraction: true },
-  'github.com': { category: 'work', difficulty: 'medium', isDistraction: false },
-  'stackoverflow.com': { category: 'work', difficulty: 'medium', isDistraction: false },
-  'linkedin.com': { category: 'work', difficulty: 'easy', isDistraction: false },
-  'wikipedia.org': { category: 'educational', difficulty: 'medium', isDistraction: false },
-  'arxiv.org': { category: 'educational', difficulty: 'hard', isDistraction: false },
-  'medium.com': { category: 'educational', difficulty: 'medium', isDistraction: false }
+  'youtube.com':      { category: 'entertainment', difficulty: 'easy',   isDistraction: true },
+  'facebook.com':     { category: 'social',        difficulty: 'easy',   isDistraction: true },
+  'instagram.com':    { category: 'social',        difficulty: 'easy',   isDistraction: true },
+  'twitter.com':      { category: 'social',        difficulty: 'easy',   isDistraction: true },
+  'x.com':            { category: 'social',        difficulty: 'easy',   isDistraction: true },
+  'reddit.com':       { category: 'social',        difficulty: 'medium', isDistraction: true },
+  'netflix.com':      { category: 'entertainment', difficulty: 'easy',   isDistraction: true },
+  'tiktok.com':       { category: 'entertainment', difficulty: 'easy',   isDistraction: true },
+  'github.com':       { category: 'work',          difficulty: 'medium', isDistraction: false },
+  'stackoverflow.com':{ category: 'work',          difficulty: 'medium', isDistraction: false },
+  'linkedin.com':     { category: 'work',          difficulty: 'easy',   isDistraction: false },
+  'wikipedia.org':    { category: 'educational',   difficulty: 'medium', isDistraction: false },
+  'arxiv.org':        { category: 'educational',   difficulty: 'hard',   isDistraction: false },
+  'medium.com':       { category: 'educational',   difficulty: 'medium', isDistraction: false }
 };
 
 let currentPageData = null;
@@ -36,7 +37,7 @@ chrome.storage.local.get(['userId'], (result) => {
   if (!result.userId) {
     userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     chrome.storage.local.set({ userId });
-    
+
     // Register with backend
     fetch(`${BACKEND_URL}/api/register-user`, {
       method: 'POST',
@@ -53,7 +54,7 @@ chrome.storage.local.get(['userId'], (result) => {
  */
 async function syncDistractionToBackend(distraction) {
   if (!userId) return;
-  
+
   try {
     await fetch(`${BACKEND_URL}/api/track-distraction`, {
       method: 'POST',
@@ -75,11 +76,11 @@ async function syncDistractionToBackend(distraction) {
  */
 async function syncAnalyticsToBackend() {
   if (!userId) return;
-  
+
   const today = new Date().toISOString().split('T')[0];
   const result = await chrome.storage.local.get(['dailyStats']);
   const todayStats = result.dailyStats?.[today];
-  
+
   if (!todayStats) return;
 
   try {
@@ -117,6 +118,7 @@ chrome.storage.local.get(['trackingEnabled'], (result) => {
 
 // ============= EXISTING SUMMARIZATION FEATURE =============
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Summarize
   if (message.action === "summarize") {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       if (!tabs || !tabs[0]) {
@@ -141,7 +143,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          func: () => document.body.innerText || "",
+          func: () => document.body.innerText || ""
         }).then((results) => {
           if (!results || !results[0] || !results[0].result) {
             throw new Error("Could not extract page content");
@@ -149,9 +151,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
           const pageText = results[0].result;
           let promptText;
-          
-          const formatInstruction = "\n\nIMPORTANT: Provide your response in clean, plain text format. Do not use markdown formatting, asterisks (*), hashtags (#), bold, italics, or any special characters for emphasis. Use simple paragraphs and natural language only.";
-          
+
+          const formatInstruction =
+            "\n\nIMPORTANT: Provide your response in clean, plain text format. Do not use markdown formatting, asterisks (*), hashtags (#), bold, italics, or any special characters for emphasis. Use simple paragraphs and natural language only.";
+
           if (message.prompt && message.prompt.trim().length > 0) {
             promptText = `Here is the content from ${url}:\n\n${pageText}\n\nUser question: ${message.prompt}${formatInstruction}`;
           } else {
@@ -198,23 +201,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Get team dashboard
   if (message.action === "getTeamDashboard") {
-    fetch(`${BACKEND_URL}/api/team-dashboard`)
-      .then(res => res.json())
-      .then(data => sendResponse({ data }))
-      .catch(err => sendResponse({ error: err.message }));
+    (async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/team-dashboard`);
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        sendResponse({ data });
+      } catch (err) {
+        console.error("getTeamDashboard error:", err);
+        sendResponse({ error: true, message: err.message });
+      }
+    })();
+
     return true;
   }
 
   // Clear tracking data
   if (message.action === "clearTrackingData") {
-    chrome.storage.local.set({ 
-      pageHistory: [], 
-      dailyStats: {},
-      classificationCache: {} 
-    }, () => {
-      classificationCache.clear();
-      sendResponse({ success: true });
-    });
+    chrome.storage.local.set(
+      { 
+        pageHistory: [], 
+        dailyStats: {},
+        classificationCache: {} 
+      },
+      () => {
+        classificationCache.clear();
+        sendResponse({ success: true });
+      }
+    );
     return true;
   }
 
@@ -263,7 +281,7 @@ async function summarizeText(text) {
 // Track tab activation (switching tabs)
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   if (!trackingEnabled) return;
-  
+
   try {
     const tab = await chrome.tabs.get(activeInfo.tabId);
     if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('edge://')) {
@@ -277,7 +295,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 // Track navigation in same tab
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!trackingEnabled) return;
-  
+
   if (changeInfo.status === 'complete' && tab.url) {
     if (!tab.url.startsWith('chrome://') && !tab.url.startsWith('edge://')) {
       handlePageVisit(tab.url, tab.title, tabId);
@@ -287,7 +305,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 async function handlePageVisit(url, title, tabId) {
   const now = Date.now();
-  
+
   // Save previous page duration
   if (currentPageData) {
     currentPageData.duration = Math.floor((now - currentPageData.timestamp) / 1000);
@@ -296,7 +314,7 @@ async function handlePageVisit(url, title, tabId) {
 
   // Classify new page
   const classification = await classifyPage(url, title, tabId);
-  
+
   previousPageData = currentPageData;
   currentPageData = {
     timestamp: now,
@@ -310,14 +328,14 @@ async function handlePageVisit(url, title, tabId) {
   if (previousPageData) {
     const distraction = detectDistraction(previousPageData, currentPageData);
     currentPageData.distraction = distraction;
-    
+
     // Notify user if distraction detected
     if (distraction.isDistraction) {
       chrome.runtime.sendMessage({
         action: "distraction_detected",
         data: distraction
       });
-      
+
       // Sync to backend
       syncDistractionToBackend(distraction);
     }
@@ -334,7 +352,7 @@ function getHostname(url) {
 
 async function classifyPage(url, title, tabId) {
   const hostname = getHostname(url);
-  
+
   // Check known sites first (instant, no API call)
   if (KNOWN_SITES[hostname]) {
     return {
@@ -344,7 +362,7 @@ async function classifyPage(url, title, tabId) {
     };
   }
 
-  // Check cache
+  // Check in‑memory cache
   const cacheKey = hostname;
   const cached = classificationCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp) < CACHE_EXPIRY) {
@@ -373,16 +391,16 @@ async function classifyPage(url, title, tabId) {
 
     const pageText = results[0]?.result || "";
     const classification = await classifyWithAI(url, title, pageText);
-    
+
     // Cache the result
     const cacheEntry = { data: classification, timestamp: Date.now() };
     classificationCache.set(cacheKey, cacheEntry);
-    
+
     // Save to persistent storage
     const updatedCache = storageCache.classificationCache || {};
     updatedCache[cacheKey] = cacheEntry;
     chrome.storage.local.set({ classificationCache: updatedCache });
-    
+
     return { ...classification, source: 'ai' };
   } catch (error) {
     console.error('Classification error:', error);
@@ -414,7 +432,6 @@ Response format:
 
   try {
     const response = await summarizeText(prompt);
-    // Extract JSON from response (in case AI adds extra text)
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
@@ -446,8 +463,8 @@ function detectDistraction(previousPage, currentPage) {
   // Context switch (work/educational → entertainment/social)
   const productiveCategories = ['work', 'educational'];
   const distractingCategories = ['entertainment', 'social'];
-  
-  if (productiveCategories.includes(previousPage.category) && 
+
+  if (productiveCategories.includes(previousPage.category) &&
       distractingCategories.includes(currentPage.category)) {
     return {
       isDistraction: true,
@@ -501,16 +518,16 @@ async function savePageVisit(pageData) {
   }
 
   dailyStats[today].totalTime += pageData.duration;
-  
+
   if (pageData.distraction && pageData.distraction.isDistraction) {
     dailyStats[today].distractionTime += pageData.duration;
     dailyStats[today].distractionCount += 1;
-    
+
     const hour = new Date(pageData.timestamp).getHours();
     dailyStats[today].hourlyDistractions[hour] += 1;
-    
+
     const hostname = getHostname(pageData.url);
-    dailyStats[today].commonDistractions[hostname] = 
+    dailyStats[today].commonDistractions[hostname] =
       (dailyStats[today].commonDistractions[hostname] || 0) + 1;
   } else {
     dailyStats[today].productiveTime += pageData.duration;
@@ -531,12 +548,10 @@ async function getAnalyticsData() {
     commonDistractions: {}
   };
 
-  // Calculate productivity score
-  const productivityScore = todayStats.totalTime > 0 
+  const productivityScore = todayStats.totalTime > 0
     ? Math.round((todayStats.productiveTime / todayStats.totalTime) * 100)
     : 100;
 
-  // Find peak distraction hours
   const peakHours = todayStats.hourlyDistractions
     .map((count, hour) => ({ hour, count }))
     .filter(h => h.count > 0)
@@ -544,7 +559,6 @@ async function getAnalyticsData() {
     .slice(0, 3)
     .map(h => h.hour);
 
-  // Top distractions
   const topDistractions = Object.entries(todayStats.commonDistractions)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)

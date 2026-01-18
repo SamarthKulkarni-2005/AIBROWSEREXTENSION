@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const summaryActions = document.getElementById('summaryActions');
   const copyStatus = document.getElementById('copyStatus');
   const darkIcon = document.getElementById('darkIcon');
-  
+
   // Analytics elements
   const analyticsBtn = document.getElementById('analyticsBtn');
   const analyticsView = document.getElementById('analyticsView');
@@ -33,16 +33,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const teamStatsContent = document.getElementById('teamStatsContent');
   const teamLoading = document.getElementById('teamLoading');
 
-
   // ============= EXISTING FEATURES =============
-  
+
   // Helper functions
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
   }
-
 
   function getHostname(url) {
     try {
@@ -52,7 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-
   function formatTime(timestamp) {
     const now = Date.now();
     const diff = now - timestamp;
@@ -60,13 +57,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-
     if (minutes < 1) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
     return `${days}d ago`;
   }
-
 
   function formatDuration(seconds) {
     if (seconds < 60) return `${seconds}s`;
@@ -77,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${hours}h ${mins}m`;
   }
 
-
   // Load summary history
   function loadHistory() {
     chrome.storage.local.get(['summaryHistory'], (result) => {
@@ -87,17 +81,20 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyHistory.style.display = 'flex';
       } else {
         emptyHistory.style.display = 'none';
-        historyList.innerHTML = history.map((item, index) => `
-          <div class="history-item" data-index="${index}">
-            <div class="history-item-header">
-              <div class="history-item-url" title="${item.url}">${getHostname(item.url)}</div>
-              <div class="history-item-time">${formatTime(item.timestamp)}</div>
+        historyList.innerHTML = history
+          .map((item, index) => `
+            <div class="history-item" data-index="${index}">
+              <div class="history-item-header">
+                <div class="history-item-url" title="${item.url}">${getHostname(item.url)}</div>
+                <div class="history-item-time">${formatTime(item.timestamp)}</div>
+              </div>
+              ${item.prompt ? `<div class="history-item-prompt">"${escapeHtml(item.prompt)}"</div>` : ''}
+              <div class="history-item-summary">${escapeHtml(item.summary)}</div>
             </div>
-            ${item.prompt ? `<div class="history-item-prompt">"${escapeHtml(item.prompt)}"</div>` : ''}
-            <div class="history-item-summary">${escapeHtml(item.summary)}</div>
-          </div>
-        `).reverse().join('');
-        
+          `)
+          .reverse()
+          .join('');
+
         document.querySelectorAll('.history-item').forEach(item => {
           item.addEventListener('click', () => {
             const idx = item.getAttribute('data-index');
@@ -111,7 +108,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-
 
   function saveToHistory(url, prompt, summary) {
     chrome.storage.local.get(['summaryHistory'], (result) => {
@@ -127,14 +123,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-
   function showMainView() {
     mainView.classList.add('active');
     historyView.classList.remove('active');
     analyticsView.classList.remove('active');
     teamDashboardView.classList.remove('active');
   }
-
 
   function showHistoryView() {
     historyView.classList.add('active');
@@ -144,27 +138,25 @@ document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
   }
 
-
   // Dark mode logic
   function updateDarkIcon() {
     darkIcon.innerHTML = document.body.classList.contains('dark')
       ? '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M21 12.79A9 9 0 1 1 11.21 3a8 8 0 1 0 9.79 9.79Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
       : '<path d="M21 12.79A9 9 0 1 1 11.21 3a8 8 0 1 0 9.79 9.79Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
   }
-  
+
   darkModeBtn.addEventListener('click', () => {
     document.body.classList.toggle('dark');
     chrome.storage.local.set({ darkMode: document.body.classList.contains('dark') });
     updateDarkIcon();
   });
-  
+
   chrome.storage.local.get(['darkMode'], (result) => {
     if (result.darkMode) {
       document.body.classList.add('dark');
     }
     updateDarkIcon();
   });
-
 
   // Copy to clipboard logic
   copyBtn.addEventListener('click', () => {
@@ -180,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-
   // Summarize
   btn.addEventListener('click', () => {
     if (!summaryBox || !loading || !customPrompt) return;
@@ -188,16 +179,14 @@ document.addEventListener('DOMContentLoaded', () => {
     loading.style.display = 'flex';
     summaryActions.style.display = 'none';
 
-
     const prompt = customPrompt.value.trim();
     chrome.runtime.sendMessage({ action: 'summarize', prompt: prompt });
   });
 
-
   // Show returned summary
   chrome.runtime.onMessage.addListener((message) => {
     if (!summaryBox || !loading) return;
-    
+
     if (message.action === 'show_summary') {
       loading.style.display = 'none';
       summaryBox.textContent = message.summary;
@@ -209,13 +198,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-
     // Handle distraction notifications
     if (message.action === 'distraction_detected') {
       console.log('Distraction detected:', message.data);
     }
   });
-
 
   // History controls
   historyBtn.addEventListener('click', showHistoryView);
@@ -228,9 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-
   // ============= ANALYTICS FEATURES =============
-
 
   function showAnalyticsView() {
     analyticsView.classList.add('active');
@@ -240,11 +225,10 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAnalytics();
   }
 
-
   function loadAnalytics() {
     chrome.storage.local.get(['trackingEnabled'], (result) => {
       trackingToggle.checked = result.trackingEnabled || false;
-      
+
       if (result.trackingEnabled) {
         analyticsContent.style.display = 'flex';
         trackingDisabled.style.display = 'none';
@@ -256,18 +240,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-
   function updateAnalyticsData() {
     chrome.runtime.sendMessage({ action: 'getAnalytics' }, (response) => {
       if (!response || !response.data) return;
-      
+
       const data = response.data;
-      
+
       // Update stat cards
       document.getElementById('productivityScore').textContent = `${data.productivityScore}%`;
       document.getElementById('productiveTime').textContent = formatDuration(data.productiveTime);
       document.getElementById('distractionCount').textContent = data.distractionCount;
-      
+
       // Update current focus
       const focusContent = document.getElementById('focusContent');
       if (data.currentFocus) {
@@ -279,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         focusContent.textContent = 'No active session';
       }
-      
+
       // Update peak hours
       const peakHoursContent = document.getElementById('peakHoursContent');
       if (data.peakHours && data.peakHours.length > 0) {
@@ -293,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         peakHoursContent.textContent = 'No data yet';
       }
-      
+
       // Update top distractions
       const topDistractionsContent = document.getElementById('topDistractionsContent');
       if (data.topDistractions && data.topDistractions.length > 0) {
@@ -310,22 +293,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-
   // Analytics controls
   analyticsBtn.addEventListener('click', showAnalyticsView);
   backFromAnalyticsBtn.addEventListener('click', showMainView);
 
-
   trackingToggle.addEventListener('change', (e) => {
     const enabled = e.target.checked;
-    chrome.runtime.sendMessage({ 
-      action: 'toggleTracking', 
-      enabled 
+    chrome.runtime.sendMessage({
+      action: 'toggleTracking',
+      enabled
     }, () => {
       loadAnalytics();
     });
   });
-
 
   clearAnalyticsBtn.addEventListener('click', () => {
     if (confirm('Clear all productivity tracking data? This cannot be undone.')) {
@@ -335,14 +315,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-
   // Auto-refresh analytics every 10 seconds when view is active
   setInterval(() => {
     if (analyticsView.classList.contains('active') && trackingToggle.checked) {
       updateAnalyticsData();
     }
   }, 10000);
-
 
   // ============= TEAM DASHBOARD FEATURES =============
 
@@ -361,17 +339,17 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.sendMessage({ action: 'getTeamDashboard' }, (response) => {
       teamLoading.style.display = 'none';
 
-      if (response.error) {
+      if (response && response.error) {
         teamStatsContent.innerHTML = `
           <div class="team-error">
             <p>⚠️ Backend offline</p>
-            <small>Make sure your backend server is running on localhost:3000</small>
+            <small>Make sure the backend URL in the extension is correct and the server is running.</small>
           </div>
         `;
         return;
       }
 
-      const data = response.data;
+      const data = response && response.data;
       if (!data) return;
 
       // Team stats header
@@ -399,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const usersContainer = document.createElement('div');
         usersContainer.className = 'team-users-list';
-        
+
         Object.entries(data.userStats).forEach(([userId, userStats]) => {
           const userCard = document.createElement('div');
           userCard.className = 'team-user-card';
@@ -417,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
           `;
           usersContainer.appendChild(userCard);
         });
-        
+
         teamStatsContent.appendChild(usersContainer);
       }
 
@@ -465,5 +443,4 @@ document.addEventListener('DOMContentLoaded', () => {
       loadTeamDashboard();
     }
   }, 15000);
-
 });
