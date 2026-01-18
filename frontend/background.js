@@ -1,5 +1,5 @@
 const API_KEY = "AIzaSyD4GZf_HUqCFKdtmMF_pXRPaovcyqmIiT4";
-const BACKEND_URL = "http://localhost:3000";
+const BACKEND_URL = "https://holies-ravening-princess.ngrok-free.dev ";
 
 
 // Cache for page classifications to reduce API calls
