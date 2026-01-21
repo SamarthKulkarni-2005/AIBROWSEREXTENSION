@@ -1,10 +1,12 @@
-const API_KEY = "AIzaSyBmK377gv4uTxn7jthe9lXEQgploSOycXU";
+const API_KEY = "AIzaSyAO5dd6v0uGvFoD_R4QInNV2cIlBiVVBP8";
 const BACKEND_URL = "https://holies-ravening-princess.ngrok-free.dev";
+
 
 
 // Cache for page classifications to reduce API calls
 const classificationCache = new Map();
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+
 
 
 // Known site categories for instant classification (no API needed)
@@ -26,14 +28,17 @@ const KNOWN_SITES = {
 };
 
 
+
 let currentPageData = null;
 let previousPageData = null;
 let sessionStartTime = Date.now();
 let trackingEnabled = false;
 
 
+
 // ============= BACKEND INTEGRATION =============
 let userId = null;
+
 
 
 // Generate unique user ID on first run
@@ -41,6 +46,7 @@ chrome.storage.local.get(['userId'], (result) => {
   if (!result.userId) {
     userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     chrome.storage.local.set({ userId });
+
 
 
     // Register with backend
@@ -58,11 +64,13 @@ chrome.storage.local.get(['userId'], (result) => {
 });
 
 
+
 /**
  * Send distraction data to backend for team analytics
  */
 async function syncDistractionToBackend(distraction) {
   if (!userId) return;
+
 
 
   try {
@@ -85,6 +93,7 @@ async function syncDistractionToBackend(distraction) {
 }
 
 
+
 /**
  * Send daily analytics to backend (call this once per day)
  */
@@ -92,12 +101,15 @@ async function syncAnalyticsToBackend() {
   if (!userId) return;
 
 
+
   const today = new Date().toISOString().split('T')[0];
   const result = await chrome.storage.local.get(['dailyStats']);
   const todayStats = result.dailyStats?.[today];
 
 
+
   if (!todayStats) return;
+
 
 
   try {
@@ -120,10 +132,12 @@ async function syncAnalyticsToBackend() {
 }
 
 
+
 // Sync analytics every hour
 setInterval(() => {
   syncAnalyticsToBackend();
 }, 60 * 60 * 1000);
+
 
 
 // Sync once on startup
@@ -132,13 +146,16 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 
+
 // ============= END BACKEND INTEGRATION =============
+
 
 
 // Load tracking preference on startup
 chrome.storage.local.get(['trackingEnabled'], (result) => {
   trackingEnabled = result.trackingEnabled || false;
 });
+
 
 
 // ============= EXISTING SUMMARIZATION FEATURE =============
@@ -155,8 +172,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
 
 
+
       const tab = tabs[0];
       const url = tab.url;
+
 
 
       if (url.startsWith('chrome://') || url.startsWith('edge://') || url.startsWith('about:')) {
@@ -166,6 +185,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         return;
       }
+
 
 
       try {
@@ -178,12 +198,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
 
 
+
           const pageText = results[0].result;
           let promptText;
 
 
+
           const formatInstruction =
             "\n\nIMPORTANT: Provide your response in clean, plain text format. Do not use markdown formatting, asterisks (*), hashtags (#), bold, italics, or any special characters for emphasis. Use simple paragraphs and natural language only.";
+
 
 
           if (message.prompt && message.prompt.trim().length > 0) {
@@ -191,6 +214,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           } else {
             promptText = `Summarize this webpage content from ${url}:\n\n${pageText}${formatInstruction}`;
           }
+
 
 
           summarizeText(promptText)
@@ -217,12 +241,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
 
+
   // Toggle tracking
   if (message.action === "toggleTracking") {
     trackingEnabled = message.enabled;
     chrome.storage.local.set({ trackingEnabled });
     sendResponse({ success: true });
   }
+
 
 
   // Get analytics data
@@ -234,31 +260,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
 
+
   // Get team dashboard
-// Get team dashboard
-if (message.action === "getTeamDashboard") {
-  (async () => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/team-dashboard`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
+  if (message.action === "getTeamDashboard") {
+    (async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/team-dashboard`, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
+
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
         }
-      });
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        sendResponse({ data });
+      } catch (err) {
+        console.error("getTeamDashboard error:", err);
+        sendResponse({ error: true, message: err.message });
       }
+    })();
 
-      const data = await res.json();
-      sendResponse({ data });
-    } catch (err) {
-      console.error("getTeamDashboard error:", err);
-      sendResponse({ error: true, message: err.message });
-    }
-  })();
 
-  return true;
-}
+    return true;
+  }
 
 
 
@@ -278,22 +307,101 @@ if (message.action === "getTeamDashboard") {
     return true;
   }
 
+  // Pomodoro timer actions
+  if (message.action === 'startPomodoro') {
+    startWorkSession();
+    sendResponse({ success: true, state: pomodoroState });
+    return true;
+  }
+  
+  if (message.action === 'pausePomodoro') {
+    pomodoroState.isPaused = true;
+    savePomodoroState();
+    updateBadge();
+    sendResponse({ success: true, state: pomodoroState });
+    return true;
+  }
+  
+  if (message.action === 'resumePomodoro') {
+    pomodoroState.isPaused = false;
+    pomodoroState.startTime = Date.now() - ((pomodoroState.duration - pomodoroState.remainingTime) * 1000);
+    savePomodoroState();
+    sendResponse({ success: true, state: pomodoroState });
+    return true;
+  }
+  
+  if (message.action === 'stopPomodoro') {
+    clearInterval(pomodoroInterval);
+    pomodoroInterval = null;
+    pomodoroState.isActive = false;
+    pomodoroState.isPaused = false;
+    pomodoroState.remainingTime = 0;
+    savePomodoroState();
+    updateBadge();
+    sendResponse({ success: true, state: pomodoroState });
+    return true;
+  }
+  
+  if (message.action === 'getPomodoroState') {
+    sendResponse({ state: pomodoroState });
+    return true;
+  }
+  
+  if (message.action === 'getPomodoroSettings') {
+    chrome.storage.local.get(['pomodoroSettings'], (result) => {
+      sendResponse({ settings: result.pomodoroSettings });
+    });
+    return true;
+  }
+  
+  if (message.action === 'savePomodoroSettings') {
+    chrome.storage.local.set({ pomodoroSettings: message.settings }, () => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+  
+  if (message.action === 'getPomodoroStats') {
+    chrome.storage.local.get(['pomodoroHistory', 'pomodoroState'], (result) => {
+      const history = result.pomodoroHistory || [];
+      const state = result.pomodoroState || {};
+      
+      // Calculate today's stats
+      const today = new Date().toISOString().split('T')[0];
+      const todayPomodoros = history.filter(p => {
+        const pDate = new Date(p.timestamp).toISOString().split('T')[0];
+        return pDate === today && p.type === 'work' && p.completed;
+      });
+      
+      sendResponse({
+        completedToday: state.completedToday || todayPomodoros.length,
+        sessionCount: state.sessionCount || 0,
+        history: history
+      });
+    });
+    return true;
+  }
 
   return true;
 });
 
 
+
 async function summarizeText(text) {
   try {
+    // Limit text to 10,000 characters to avoid token limits
+    const limitedText = text.substring(0, 10000);
+    
     const body = {
       contents: [
-        { parts: [{ text }] }
+        { 
+          parts: [{ text: limitedText }]
+        }
       ]
     };
 
-
     const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + API_KEY,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -301,36 +409,43 @@ async function summarizeText(text) {
       }
     );
 
-
     if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+      const errorData = await res.json().catch(() => ({}));
+      console.error('Gemini API Error Response:', errorData);
+      throw new Error(`HTTP ${res.status}: ${errorData.error?.message || 'Unknown API error'}`);
     }
 
-
     const data = await res.json();
+    
     if (data.error) {
       throw new Error(data.error.message || "API returned an error");
     }
 
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error("No response generated by API");
+    }
 
     return (
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      data.candidates?.[0]?.output_text ||
-      data.output_text ||
+      data.candidates[0]?.content?.parts?.[0]?.text ||
       "No summary generated."
     );
+    
   } catch (error) {
+    console.error('Full summarize error:', error);
     throw error;
   }
 }
 
 
+
 // ============= NEW DISTRACTION TRACKING FEATURES =============
+
 
 
 // Track tab activation (switching tabs)
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   if (!trackingEnabled) return;
+
 
 
   try {
@@ -344,9 +459,11 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 });
 
 
+
 // Track navigation in same tab
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!trackingEnabled) return;
+
 
 
   if (changeInfo.status === 'complete' && tab.url) {
@@ -357,8 +474,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 
+
 async function handlePageVisit(url, title, tabId) {
   const now = Date.now();
+
 
 
   // Save previous page duration
@@ -368,8 +487,10 @@ async function handlePageVisit(url, title, tabId) {
   }
 
 
+
   // Classify new page
   const classification = await classifyPage(url, title, tabId);
+
 
 
   previousPageData = currentPageData;
@@ -382,10 +503,12 @@ async function handlePageVisit(url, title, tabId) {
   };
 
 
+
   // Detect distraction
   if (previousPageData) {
     const distraction = detectDistraction(previousPageData, currentPageData);
     currentPageData.distraction = distraction;
+
 
 
     // Notify user if distraction detected
@@ -396,11 +519,13 @@ async function handlePageVisit(url, title, tabId) {
       });
 
 
+
       // Sync to backend
       syncDistractionToBackend(distraction);
     }
   }
 }
+
 
 
 function getHostname(url) {
@@ -412,8 +537,10 @@ function getHostname(url) {
 }
 
 
+
 async function classifyPage(url, title, tabId) {
   const hostname = getHostname(url);
+
 
 
   // Check known sites first (instant, no API call)
@@ -426,12 +553,14 @@ async function classifyPage(url, title, tabId) {
   }
 
 
+
   // Check in‑memory cache
   const cacheKey = hostname;
   const cached = classificationCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp) < CACHE_EXPIRY) {
     return { ...cached.data, source: 'cache' };
   }
+
 
 
   // Check persistent cache in storage
@@ -445,6 +574,7 @@ async function classifyPage(url, title, tabId) {
   }
 
 
+
   // Extract page content for AI classification
   try {
     const results = await chrome.scripting.executeScript({
@@ -456,8 +586,10 @@ async function classifyPage(url, title, tabId) {
     });
 
 
+
     const pageText = results[0]?.result || "";
     const classification = await classifyWithAI(url, title, pageText);
+
 
 
     // Cache the result
@@ -465,10 +597,12 @@ async function classifyPage(url, title, tabId) {
     classificationCache.set(cacheKey, cacheEntry);
 
 
+
     // Save to persistent storage
     const updatedCache = storageCache.classificationCache || {};
     updatedCache[cacheKey] = cacheEntry;
     chrome.storage.local.set({ classificationCache: updatedCache });
+
 
 
     return { ...classification, source: 'ai' };
@@ -486,13 +620,16 @@ async function classifyPage(url, title, tabId) {
 }
 
 
+
 async function classifyWithAI(url, title, pageText) {
   const prompt = `Analyze this webpage and classify it. Respond ONLY with valid JSON, no other text:
+
 
 
 URL: ${url}
 Title: ${title}
 Content snippet: ${pageText}
+
 
 
 Response format:
@@ -502,6 +639,7 @@ Response format:
   "category": "work/educational/entertainment/social/news/shopping/other",
   "isDistraction": true/false
 }`;
+
 
 
   try {
@@ -523,6 +661,7 @@ Response format:
 }
 
 
+
 function detectDistraction(previousPage, currentPage) {
   // Quick distraction detection based on category
   if (currentPage.isDistraction) {
@@ -536,9 +675,11 @@ function detectDistraction(previousPage, currentPage) {
   }
 
 
+
   // Context switch (work/educational → entertainment/social)
   const productiveCategories = ['work', 'educational'];
   const distractingCategories = ['entertainment', 'social'];
+
 
 
   if (productiveCategories.includes(previousPage.category) &&
@@ -553,6 +694,7 @@ function detectDistraction(previousPage, currentPage) {
   }
 
 
+
   // Difficulty avoidance (hard → easy)
   if (previousPage.difficulty === 'hard' && currentPage.difficulty === 'easy') {
     return {
@@ -565,6 +707,7 @@ function detectDistraction(previousPage, currentPage) {
   }
 
 
+
   return {
     isDistraction: false,
     type: null,
@@ -573,10 +716,12 @@ function detectDistraction(previousPage, currentPage) {
 }
 
 
+
 async function savePageVisit(pageData) {
   const result = await chrome.storage.local.get(['pageHistory', 'dailyStats']);
   const pageHistory = result.pageHistory || [];
   const dailyStats = result.dailyStats || {};
+
 
 
   // Add to history (keep last 500 entries)
@@ -584,6 +729,7 @@ async function savePageVisit(pageData) {
   if (pageHistory.length > 500) {
     pageHistory.shift();
   }
+
 
 
   // Update daily stats
@@ -600,7 +746,9 @@ async function savePageVisit(pageData) {
   }
 
 
+
   dailyStats[today].totalTime += pageData.duration;
+
 
 
   if (pageData.distraction && pageData.distraction.isDistraction) {
@@ -608,8 +756,10 @@ async function savePageVisit(pageData) {
     dailyStats[today].distractionCount += 1;
 
 
+
     const hour = new Date(pageData.timestamp).getHours();
     dailyStats[today].hourlyDistractions[hour] += 1;
+
 
 
     const hostname = getHostname(pageData.url);
@@ -620,8 +770,10 @@ async function savePageVisit(pageData) {
   }
 
 
+
   await chrome.storage.local.set({ pageHistory, dailyStats });
 }
+
 
 
 async function getAnalyticsData() {
@@ -637,9 +789,11 @@ async function getAnalyticsData() {
   };
 
 
+
   const productivityScore = todayStats.totalTime > 0
     ? Math.round((todayStats.productiveTime / todayStats.totalTime) * 100)
     : 100;
+
 
 
   const peakHours = todayStats.hourlyDistractions
@@ -650,10 +804,12 @@ async function getAnalyticsData() {
     .map(h => h.hour);
 
 
+
   const topDistractions = Object.entries(todayStats.commonDistractions)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([site, count]) => ({ site, count }));
+
 
 
   return {
@@ -671,3 +827,273 @@ async function getAnalyticsData() {
     } : null
   };
 }
+
+
+
+// ============= POMODORO TIMER FEATURE =============
+
+let pomodoroState = {
+  isActive: false,
+  isPaused: false,
+  type: 'work', // 'work' | 'shortBreak' | 'longBreak'
+  startTime: null,
+  duration: 1500, // 25 minutes in seconds
+  remainingTime: 1500,
+  sessionCount: 0, // tracks progress toward long break
+  completedToday: 0
+};
+
+let pomodoroInterval = null;
+
+// Load pomodoro state on startup
+chrome.storage.local.get(['pomodoroState', 'pomodoroSettings', 'pomodoroHistory'], (result) => {
+  if (result.pomodoroState) {
+    pomodoroState = result.pomodoroState;
+    
+    // Resume timer if it was active
+    if (pomodoroState.isActive && !pomodoroState.isPaused) {
+      const elapsed = Math.floor((Date.now() - pomodoroState.startTime) / 1000);
+      pomodoroState.remainingTime = Math.max(0, pomodoroState.duration - elapsed);
+      
+      if (pomodoroState.remainingTime > 0) {
+        startPomodoroTimer();
+      } else {
+        completePomodoroSession();
+      }
+    }
+  }
+  
+  // Initialize settings if not exists
+  if (!result.pomodoroSettings) {
+    chrome.storage.local.set({
+      pomodoroSettings: {
+        workDuration: 25,
+        shortBreakDuration: 5,
+        longBreakDuration: 15,
+        autoStartBreaks: true,
+        autoStartWork: false,
+        notificationsEnabled: true
+      }
+    });
+  }
+});
+
+function startPomodoroTimer() {
+  if (pomodoroInterval) clearInterval(pomodoroInterval);
+  
+  pomodoroInterval = setInterval(() => {
+    if (pomodoroState.isPaused) return;
+    
+    pomodoroState.remainingTime--;
+    updateBadge();
+    
+    // Save state every 5 seconds
+    if (pomodoroState.remainingTime % 5 === 0) {
+      savePomodoroState();
+    }
+    
+    // Broadcast to popup
+    chrome.runtime.sendMessage({
+      action: 'pomodoro_tick',
+      state: pomodoroState
+    }).catch(() => {}); // Ignore if popup is closed
+    
+    if (pomodoroState.remainingTime <= 0) {
+      completePomodoroSession();
+    }
+  }, 1000);
+}
+
+function completePomodoroSession() {
+  clearInterval(pomodoroInterval);
+  pomodoroInterval = null;
+  
+  const completedType = pomodoroState.type;
+  
+  // Save to history
+  savePomodoroToHistory(completedType);
+  
+  // Show notification
+  chrome.storage.local.get(['pomodoroSettings'], (result) => {
+    const settings = result.pomodoroSettings || {};
+    
+    if (settings.notificationsEnabled) {
+      let title, message;
+      
+      if (completedType === 'work') {
+        pomodoroState.sessionCount++;
+        pomodoroState.completedToday++;
+        
+        const isLongBreak = pomodoroState.sessionCount % 4 === 0;
+        
+        title = '🎉 Work Session Complete!';
+        message = isLongBreak 
+          ? `Great work! Time for a ${settings.longBreakDuration}-minute break 🌟`
+          : `Time for a ${settings.shortBreakDuration}-minute break ☕`;
+        
+        // Auto-start break if enabled
+        if (settings.autoStartBreaks) {
+          setTimeout(() => {
+            startBreakSession(isLongBreak);
+          }, 2000);
+        } else {
+          pomodoroState.isActive = false;
+        }
+      } else {
+        title = '✅ Break Complete!';
+        message = 'Ready for another focused session? 💪';
+        
+        // Auto-start work if enabled
+        if (settings.autoStartWork) {
+          setTimeout(() => {
+            startWorkSession();
+          }, 2000);
+        } else {
+          pomodoroState.isActive = false;
+        }
+      }
+      
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: title,
+        message: message,
+        priority: 2
+      });
+    }
+  });
+  
+  updateBadge();
+  savePomodoroState();
+  
+  // Notify popup
+  chrome.runtime.sendMessage({
+    action: 'pomodoro_complete',
+    completedType: completedType,
+    state: pomodoroState
+  }).catch(() => {});
+  
+  // Sync completed work pomodoro to backend
+  if (completedType === 'work') {
+    syncPomodoroToBackend();
+  }
+}
+
+function startWorkSession() {
+  chrome.storage.local.get(['pomodoroSettings'], (result) => {
+    const settings = result.pomodoroSettings || { workDuration: 25 };
+    
+    pomodoroState.isActive = true;
+    pomodoroState.isPaused = false;
+    pomodoroState.type = 'work';
+    pomodoroState.duration = settings.workDuration * 60;
+    pomodoroState.remainingTime = pomodoroState.duration;
+    pomodoroState.startTime = Date.now();
+    
+    // Auto-enable distraction tracking during work sessions
+    trackingEnabled = true;
+    chrome.storage.local.set({ trackingEnabled: true });
+    
+    startPomodoroTimer();
+    savePomodoroState();
+  });
+}
+
+function startBreakSession(isLongBreak) {
+  chrome.storage.local.get(['pomodoroSettings'], (result) => {
+    const settings = result.pomodoroSettings || { shortBreakDuration: 5, longBreakDuration: 15 };
+    
+    const duration = isLongBreak ? settings.longBreakDuration : settings.shortBreakDuration;
+    
+    pomodoroState.isActive = true;
+    pomodoroState.isPaused = false;
+    pomodoroState.type = isLongBreak ? 'longBreak' : 'shortBreak';
+    pomodoroState.duration = duration * 60;
+    pomodoroState.remainingTime = pomodoroState.duration;
+    pomodoroState.startTime = Date.now();
+    
+    // Reset session count after long break
+    if (isLongBreak) {
+      pomodoroState.sessionCount = 0;
+    }
+    
+    startPomodoroTimer();
+    savePomodoroState();
+  });
+}
+
+function updateBadge() {
+  if (!pomodoroState.isActive) {
+    chrome.action.setBadgeText({ text: '' });
+    return;
+  }
+  
+  const minutes = Math.floor(pomodoroState.remainingTime / 60);
+  const seconds = pomodoroState.remainingTime % 60;
+  const badgeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  
+  chrome.action.setBadgeText({ text: badgeText });
+  
+  // Color based on session type
+  const color = pomodoroState.type === 'work' 
+    ? '#21808D' // Teal for work
+    : pomodoroState.type === 'longBreak'
+    ? '#22C55E' // Green for long break
+    : '#F59E0B'; // Orange for short break
+    
+  chrome.action.setBadgeBackgroundColor({ color });
+}
+
+function savePomodoroState() {
+  chrome.storage.local.set({ pomodoroState });
+}
+
+function savePomodoroToHistory(type) {
+  chrome.storage.local.get(['pomodoroHistory'], (result) => {
+    const history = result.pomodoroHistory || [];
+    history.push({
+      timestamp: Date.now(),
+      type: type,
+      completed: true
+    });
+    
+    // Keep last 100 entries
+    if (history.length > 100) {
+      history.shift();
+    }
+    
+    chrome.storage.local.set({ pomodoroHistory: history });
+  });
+}
+
+async function syncPomodoroToBackend() {
+  if (!userId) return;
+  
+  try {
+    await fetch(`${BACKEND_URL}/api/save-pomodoro`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true'
+      },
+      body: JSON.stringify({
+        userId,
+        timestamp: Date.now(),
+        duration: pomodoroState.duration
+      })
+    });
+  } catch (error) {
+    console.log('Could not sync pomodoro to backend:', error);
+  }
+}
+
+// Reset daily counter at midnight
+setInterval(() => {
+  const now = new Date();
+  if (now.getHours() === 0 && now.getMinutes() === 0) {
+    pomodoroState.completedToday = 0;
+    savePomodoroState();
+  }
+}, 60000); // Check every minute
+
+// ============= END POMODORO TIMER FEATURE =============

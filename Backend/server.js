@@ -49,6 +49,7 @@ const Distraction = mongoose.model('Distraction', distractionSchema);
 const Analytics = mongoose.model('Analytics', analyticsSchema);
 
 // Root route
+
 app.get('/', (req, res) => {
   res.json({ 
     status: 'ok', 
@@ -58,10 +59,13 @@ app.get('/', (req, res) => {
       'POST /api/track-distraction',
       'POST /api/save-analytics',
       'GET /api/team-dashboard',
+      'POST /api/save-pomodoro',
+      'GET /api/team-pomodoros',
       'GET /api/health'
     ]
   });
 });
+
 
 // Routes
 
@@ -207,6 +211,95 @@ app.get('/api/team-dashboard', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
+// ============= POMODORO TIMER BACKEND =============
+
+// Pomodoro Schema
+const pomodoroSchema = new mongoose.Schema({
+  userId: String,
+  timestamp: Date,
+  duration: Number, // in seconds
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Pomodoro = mongoose.model('Pomodoro', pomodoroSchema);
+
+// 6. Save completed pomodoro
+app.post('/api/save-pomodoro', async (req, res) => {
+  try {
+    const { userId, timestamp, duration } = req.body;
+    
+    // Update user lastActive
+    await User.updateOne({ userId }, { lastActive: new Date() });
+    
+    // Save pomodoro
+    const newPomodoro = new Pomodoro({
+      userId,
+      timestamp: new Date(timestamp),
+      duration
+    });
+    await newPomodoro.save();
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Save pomodoro error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7. Get team pomodoro leaderboard
+app.get('/api/team-pomodoros', async (req, res) => {
+  try {
+    // Get today's date range
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Get all active users (last 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const activeUsers = await User.find({ lastActive: { $gte: sevenDaysAgo } });
+    
+    if (activeUsers.length === 0) {
+      return res.json({
+        totalPomodoros: 0,
+        averagePomodoros: 0,
+        userPomodoros: {}
+      });
+    }
+    
+    // Get today's pomodoros for all users
+    const userPomodoros = {};
+    let totalPomodoros = 0;
+    
+    for (const user of activeUsers) {
+      const pomodoros = await Pomodoro.find({
+        userId: user.userId,
+        timestamp: { $gte: today, $lt: tomorrow }
+      });
+      
+      userPomodoros[user.userId] = {
+        name: user.name,
+        count: pomodoros.length,
+        totalTime: pomodoros.reduce((sum, p) => sum + (p.duration || 0), 0)
+      };
+      
+      totalPomodoros += pomodoros.length;
+    }
+    
+    const averagePomodoros = Math.round(totalPomodoros / activeUsers.length);
+    
+    res.json({
+      totalPomodoros,
+      averagePomodoros,
+      userPomodoros
+    });
+  } catch (error) {
+    console.error('Team pomodoros error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============= END POMODORO TIMER BACKEND =============
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {

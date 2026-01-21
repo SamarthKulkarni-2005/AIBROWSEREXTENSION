@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const copyStatus = document.getElementById('copyStatus');
   const darkIcon = document.getElementById('darkIcon');
 
+
   // Analytics elements
   const analyticsBtn = document.getElementById('analyticsBtn');
   const analyticsView = document.getElementById('analyticsView');
@@ -26,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const analyticsContent = document.querySelector('.analytics-content');
   const trackingDisabled = document.getElementById('trackingDisabled');
 
+
   // Team dashboard elements
   const teamDashboardBtn = document.getElementById('teamDashboardBtn');
   const teamDashboardView = document.getElementById('teamDashboardView');
@@ -33,7 +35,39 @@ document.addEventListener('DOMContentLoaded', () => {
   const teamStatsContent = document.getElementById('teamStatsContent');
   const teamLoading = document.getElementById('teamLoading');
 
+
+  // Focus Timer elements
+  const focusTimerBtn = document.getElementById('focusTimerBtn');
+  const focusTimerView = document.getElementById('focusTimerView');
+  const backFromFocusBtn = document.getElementById('backFromFocusBtn');
+  const timerTime = document.getElementById('timerTime');
+  const timerType = document.getElementById('timerType');
+  const timerSessionCount = document.getElementById('timerSessionCount');
+  const startTimerBtn = document.getElementById('startTimerBtn');
+  const pauseTimerBtn = document.getElementById('pauseTimerBtn');
+  const resumeTimerBtn = document.getElementById('resumeTimerBtn');
+  const stopTimerBtn = document.getElementById('stopTimerBtn');
+  const todayPomodoros = document.getElementById('todayPomodoros');
+  const focusTime = document.getElementById('focusTime');
+  const timerProgressRingFill = document.querySelector('.timer-progress-ring-fill');
+  
+  // Settings modal elements
+  const timerSettingsBtn = document.getElementById('timerSettingsBtn');
+  const timerSettingsModal = document.getElementById('timerSettingsModal');
+  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+  const workDurationInput = document.getElementById('workDurationInput');
+  const shortBreakInput = document.getElementById('shortBreakInput');
+  const longBreakInput = document.getElementById('longBreakInput');
+  const autoStartBreaks = document.getElementById('autoStartBreaks');
+  const autoStartWork = document.getElementById('autoStartWork');
+  const notificationsEnabled = document.getElementById('notificationsEnabled');
+
+  let timerUpdateInterval = null;
+
+
   // ============= EXISTING FEATURES =============
+
 
   // Helper functions
   function escapeHtml(text) {
@@ -41,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     div.textContent = text;
     return div.innerHTML;
   }
+
 
   function getHostname(url) {
     try {
@@ -50,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+
   function formatTime(timestamp) {
     const now = Date.now();
     const diff = now - timestamp;
@@ -57,11 +93,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
+
     if (minutes < 1) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
     return `${days}d ago`;
   }
+
 
   function formatDuration(seconds) {
     if (seconds < 60) return `${seconds}s`;
@@ -71,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
   }
+
 
   // Load summary history
   function loadHistory() {
@@ -95,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
           .reverse()
           .join('');
 
+
         document.querySelectorAll('.history-item').forEach(item => {
           item.addEventListener('click', () => {
             const idx = item.getAttribute('data-index');
@@ -108,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
 
   function saveToHistory(url, prompt, summary) {
     chrome.storage.local.get(['summaryHistory'], (result) => {
@@ -123,20 +164,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+
   function showMainView() {
     mainView.classList.add('active');
     historyView.classList.remove('active');
     analyticsView.classList.remove('active');
     teamDashboardView.classList.remove('active');
+    focusTimerView.classList.remove('active');
+    stopTimerUpdateLoop();
   }
+
 
   function showHistoryView() {
     historyView.classList.add('active');
     mainView.classList.remove('active');
     analyticsView.classList.remove('active');
     teamDashboardView.classList.remove('active');
+    focusTimerView.classList.remove('active');
+    stopTimerUpdateLoop();
     loadHistory();
   }
+
 
   // Dark mode logic
   function updateDarkIcon() {
@@ -145,11 +193,13 @@ document.addEventListener('DOMContentLoaded', () => {
       : '<path d="M21 12.79A9 9 0 1 1 11.21 3a8 8 0 1 0 9.79 9.79Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
   }
 
+
   darkModeBtn.addEventListener('click', () => {
     document.body.classList.toggle('dark');
     chrome.storage.local.set({ darkMode: document.body.classList.contains('dark') });
     updateDarkIcon();
   });
+
 
   chrome.storage.local.get(['darkMode'], (result) => {
     if (result.darkMode) {
@@ -157,6 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateDarkIcon();
   });
+
 
   // Copy to clipboard logic
   copyBtn.addEventListener('click', () => {
@@ -172,6 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+
   // Summarize
   btn.addEventListener('click', () => {
     if (!summaryBox || !loading || !customPrompt) return;
@@ -179,13 +231,16 @@ document.addEventListener('DOMContentLoaded', () => {
     loading.style.display = 'flex';
     summaryActions.style.display = 'none';
 
+
     const prompt = customPrompt.value.trim();
     chrome.runtime.sendMessage({ action: 'summarize', prompt: prompt });
   });
 
+
   // Show returned summary
   chrome.runtime.onMessage.addListener((message) => {
     if (!summaryBox || !loading) return;
+
 
     if (message.action === 'show_summary') {
       loading.style.display = 'none';
@@ -198,11 +253,25 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+
     // Handle distraction notifications
     if (message.action === 'distraction_detected') {
       console.log('Distraction detected:', message.data);
     }
+
+    // Handle pomodoro updates
+    if (message.action === 'pomodoro_tick' && focusTimerView.classList.contains('active')) {
+      updateTimerUI(message.state);
+    }
+    
+    if (message.action === 'pomodoro_complete') {
+      loadTimerStats();
+      if (focusTimerView.classList.contains('active')) {
+        loadTimerState();
+      }
+    }
   });
+
 
   // History controls
   historyBtn.addEventListener('click', showHistoryView);
@@ -215,19 +284,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+
   // ============= ANALYTICS FEATURES =============
+
 
   function showAnalyticsView() {
     analyticsView.classList.add('active');
     mainView.classList.remove('active');
     historyView.classList.remove('active');
     teamDashboardView.classList.remove('active');
+    focusTimerView.classList.remove('active');
+    stopTimerUpdateLoop();
     loadAnalytics();
   }
+
 
   function loadAnalytics() {
     chrome.storage.local.get(['trackingEnabled'], (result) => {
       trackingToggle.checked = result.trackingEnabled || false;
+
 
       if (result.trackingEnabled) {
         analyticsContent.style.display = 'flex';
@@ -240,16 +315,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+
   function updateAnalyticsData() {
     chrome.runtime.sendMessage({ action: 'getAnalytics' }, (response) => {
       if (!response || !response.data) return;
 
+
       const data = response.data;
+
 
       // Update stat cards
       document.getElementById('productivityScore').textContent = `${data.productivityScore}%`;
       document.getElementById('productiveTime').textContent = formatDuration(data.productiveTime);
       document.getElementById('distractionCount').textContent = data.distractionCount;
+
 
       // Update current focus
       const focusContent = document.getElementById('focusContent');
@@ -262,6 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         focusContent.textContent = 'No active session';
       }
+
 
       // Update peak hours
       const peakHoursContent = document.getElementById('peakHoursContent');
@@ -276,6 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         peakHoursContent.textContent = 'No data yet';
       }
+
 
       // Update top distractions
       const topDistractionsContent = document.getElementById('topDistractionsContent');
@@ -293,9 +374,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+
   // Analytics controls
   analyticsBtn.addEventListener('click', showAnalyticsView);
   backFromAnalyticsBtn.addEventListener('click', showMainView);
+
 
   trackingToggle.addEventListener('change', (e) => {
     const enabled = e.target.checked;
@@ -307,6 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+
   clearAnalyticsBtn.addEventListener('click', () => {
     if (confirm('Clear all productivity tracking data? This cannot be undone.')) {
       chrome.runtime.sendMessage({ action: 'clearTrackingData' }, () => {
@@ -315,6 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+
   // Auto-refresh analytics every 10 seconds when view is active
   setInterval(() => {
     if (analyticsView.classList.contains('active') && trackingToggle.checked) {
@@ -322,22 +407,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 10000);
 
+
   // ============= TEAM DASHBOARD FEATURES =============
+
 
   function showTeamDashboardView() {
     teamDashboardView.classList.add('active');
     mainView.classList.remove('active');
     historyView.classList.remove('active');
     analyticsView.classList.remove('active');
+    focusTimerView.classList.remove('active');
+    stopTimerUpdateLoop();
     loadTeamDashboard();
   }
+
 
   function loadTeamDashboard() {
     teamLoading.style.display = 'flex';
     teamStatsContent.innerHTML = '';
 
+
     chrome.runtime.sendMessage({ action: 'getTeamDashboard' }, (response) => {
       teamLoading.style.display = 'none';
+
 
       if (response && response.error) {
         teamStatsContent.innerHTML = `
@@ -349,8 +441,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+
       const data = response && response.data;
       if (!data) return;
+
 
       // Team stats header
       const teamHeader = document.createElement('div');
@@ -367,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       teamStatsContent.appendChild(teamHeader);
 
+
       // Individual user stats
       if (data.userStats && Object.keys(data.userStats).length > 0) {
         const usersTitle = document.createElement('h3');
@@ -375,8 +470,10 @@ document.addEventListener('DOMContentLoaded', () => {
         usersTitle.style.marginBottom = '8px';
         teamStatsContent.appendChild(usersTitle);
 
+
         const usersContainer = document.createElement('div');
         usersContainer.className = 'team-users-list';
+
 
         Object.entries(data.userStats).forEach(([userId, userStats]) => {
           const userCard = document.createElement('div');
@@ -396,8 +493,10 @@ document.addEventListener('DOMContentLoaded', () => {
           usersContainer.appendChild(userCard);
         });
 
+
         teamStatsContent.appendChild(usersContainer);
       }
+
 
       // Team distractions
       if (data.teamDistractions && data.teamDistractions.length > 0) {
@@ -407,8 +506,10 @@ document.addEventListener('DOMContentLoaded', () => {
         distractionsTitle.style.marginBottom = '8px';
         teamStatsContent.appendChild(distractionsTitle);
 
+
         const distractionsContainer = document.createElement('div');
         distractionsContainer.className = 'team-distractions-list';
+
 
         data.teamDistractions.forEach(item => {
           const distractionItem = document.createElement('div');
@@ -424,10 +525,12 @@ document.addEventListener('DOMContentLoaded', () => {
           distractionsContainer.appendChild(distractionItem);
         });
 
+
         teamStatsContent.appendChild(distractionsContainer);
       }
     });
   }
+
 
   // Team dashboard controls
   if (teamDashboardBtn) {
@@ -437,10 +540,272 @@ document.addEventListener('DOMContentLoaded', () => {
     backFromTeamBtn.addEventListener('click', showMainView);
   }
 
+
   // Auto-refresh team dashboard every 15 seconds when view is active
   setInterval(() => {
     if (teamDashboardView && teamDashboardView.classList.contains('active')) {
       loadTeamDashboard();
     }
   }, 15000);
+
+
+  // ============= FOCUS TIMER FEATURES =============
+
+
+  // Show Focus Timer View
+  function showFocusTimerView() {
+    focusTimerView.classList.add('active');
+    mainView.classList.remove('active');
+    historyView.classList.remove('active');
+    analyticsView.classList.remove('active');
+    teamDashboardView.classList.remove('active');
+    loadTimerState();
+    loadTimerStats();
+  }
+
+  // Load timer state from background
+  function loadTimerState() {
+    chrome.runtime.sendMessage({ action: 'getPomodoroState' }, (response) => {
+      if (response && response.state) {
+        updateTimerUI(response.state);
+      }
+    });
+  }
+
+  // Load timer statistics
+  function loadTimerStats() {
+    chrome.runtime.sendMessage({ action: 'getPomodoroStats' }, (response) => {
+      if (response) {
+        todayPomodoros.textContent = response.completedToday || 0;
+        
+        // Calculate total focus time (completed pomodoros * work duration)
+        chrome.runtime.sendMessage({ action: 'getPomodoroSettings' }, (settingsResponse) => {
+          const settings = settingsResponse?.settings || { workDuration: 25 };
+          const totalMinutes = (response.completedToday || 0) * settings.workDuration;
+          const hours = Math.floor(totalMinutes / 60);
+          const minutes = totalMinutes % 60;
+          focusTime.textContent = `${hours}h ${minutes}m`;
+        });
+      }
+    });
+  }
+
+  // Update timer UI based on state
+  // Update timer UI based on state
+function updateTimerUI(state) {
+  if (!state) return;
+
+  // Update time display
+  const minutes = Math.floor(state.remainingTime / 60);
+  const seconds = state.remainingTime % 60;
+  timerTime.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+  // Update session info
+  if (state.type === 'work') {
+    timerType.textContent = 'Work Session';
+    timerProgressRingFill.classList.remove('shortBreak', 'longBreak');
+    timerProgressRingFill.classList.add('work');
+  } else if (state.type === 'shortBreak') {
+    timerType.textContent = 'Short Break';
+    timerProgressRingFill.classList.remove('work', 'longBreak');
+    timerProgressRingFill.classList.add('shortBreak');
+  } else if (state.type === 'longBreak') {
+    timerType.textContent = 'Long Break';
+    timerProgressRingFill.classList.remove('work', 'shortBreak');
+    timerProgressRingFill.classList.add('longBreak');
+  } else {
+    timerType.textContent = 'Ready to Focus';
+  }
+
+  timerSessionCount.textContent = `🍅 Session ${state.sessionCount}/4`;
+
+  // Update progress ring
+  const circumference = 2 * Math.PI * 90; // 565.48
+  const progress = state.duration > 0 ? (state.remainingTime / state.duration) : 1;
+  const offset = circumference * (1 - progress);
+  timerProgressRingFill.style.strokeDashoffset = offset;
+
+  // Update button visibility
+  if (state.isActive && !state.isPaused) {
+    startTimerBtn.style.display = 'none';
+    pauseTimerBtn.style.display = 'inline-flex';
+    resumeTimerBtn.style.display = 'none';
+    stopTimerBtn.style.display = 'inline-flex';
+    timerTime.classList.add('active');
+  } else if (state.isActive && state.isPaused) {
+    startTimerBtn.style.display = 'none';
+    pauseTimerBtn.style.display = 'none';
+    resumeTimerBtn.style.display = 'inline-flex';
+    stopTimerBtn.style.display = 'inline-flex';
+    timerTime.classList.remove('active');
+  } else {
+    startTimerBtn.style.display = 'inline-flex';
+    pauseTimerBtn.style.display = 'none';
+    resumeTimerBtn.style.display = 'none';
+    stopTimerBtn.style.display = 'none';
+    timerTime.classList.remove('active');
+  }
+
+  // ✅ NEW: Update focus time in real-time
+  if (state.isActive && state.type === 'work') {
+    const elapsedSeconds = state.duration - state.remainingTime;
+    
+    chrome.runtime.sendMessage({ action: 'getPomodoroStats' }, (statsResponse) => {
+      if (statsResponse) {
+        chrome.runtime.sendMessage({ action: 'getPomodoroSettings' }, (settingsResponse) => {
+          const settings = settingsResponse?.settings || { workDuration: 25 };
+          
+          // Total time = (completed sessions * work duration) + current session elapsed time
+          const completedMinutes = (statsResponse.completedToday || 0) * settings.workDuration;
+          const currentMinutes = Math.floor(elapsedSeconds / 60);
+          const totalMinutes = completedMinutes + currentMinutes;
+          
+          const hours = Math.floor(totalMinutes / 60);
+          const minutes = totalMinutes % 60;
+          
+          if (focusTime) {
+            focusTime.textContent = `${hours}h ${minutes}m`;
+          }
+        });
+      }
+    });
+  }
+}
+
+  // Timer control handlers
+  startTimerBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'startPomodoro' }, (response) => {
+      if (response && response.state) {
+        updateTimerUI(response.state);
+        startTimerUpdateLoop();
+      }
+    });
+  });
+
+  pauseTimerBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'pausePomodoro' }, (response) => {
+      if (response && response.state) {
+        updateTimerUI(response.state);
+      }
+    });
+  });
+
+  resumeTimerBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'resumePomodoro' }, (response) => {
+      if (response && response.state) {
+        updateTimerUI(response.state);
+        startTimerUpdateLoop();
+      }
+    });
+  });
+
+  stopTimerBtn.addEventListener('click', () => {
+    if (confirm('Stop the current session? Progress will be lost.')) {
+      chrome.runtime.sendMessage({ action: 'stopPomodoro' }, (response) => {
+        if (response && response.state) {
+          updateTimerUI(response.state);
+          stopTimerUpdateLoop();
+          // Reset display
+          chrome.runtime.sendMessage({ action: 'getPomodoroSettings' }, (settingsResponse) => {
+            const settings = settingsResponse?.settings || { workDuration: 25 };
+            timerTime.textContent = `${settings.workDuration}:00`;
+            timerType.textContent = 'Ready to Focus';
+            timerProgressRingFill.style.strokeDashoffset = 0;
+          });
+        }
+      });
+    }
+  });
+
+  // Auto-update timer display
+  function startTimerUpdateLoop() {
+    if (timerUpdateInterval) clearInterval(timerUpdateInterval);
+    timerUpdateInterval = setInterval(() => {
+      loadTimerState();
+    }, 1000);
+  }
+
+  function stopTimerUpdateLoop() {
+    if (timerUpdateInterval) {
+      clearInterval(timerUpdateInterval);
+      timerUpdateInterval = null;
+    }
+  }
+
+  // Settings modal handlers
+  timerSettingsBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'getPomodoroSettings' }, (response) => {
+      const settings = response?.settings || {
+        workDuration: 25,
+        shortBreakDuration: 5,
+        longBreakDuration: 15,
+        autoStartBreaks: true,
+        autoStartWork: false,
+        notificationsEnabled: true
+      };
+      
+      workDurationInput.value = settings.workDuration;
+      shortBreakInput.value = settings.shortBreakDuration;
+      longBreakInput.value = settings.longBreakDuration;
+      autoStartBreaks.checked = settings.autoStartBreaks;
+      autoStartWork.checked = settings.autoStartWork;
+      notificationsEnabled.checked = settings.notificationsEnabled;
+      
+      timerSettingsModal.style.display = 'flex';
+    });
+  });
+
+  closeSettingsBtn.addEventListener('click', () => {
+    timerSettingsModal.style.display = 'none';
+  });
+
+  saveSettingsBtn.addEventListener('click', () => {
+    const settings = {
+      workDuration: parseInt(workDurationInput.value) || 25,
+      shortBreakDuration: parseInt(shortBreakInput.value) || 5,
+      longBreakDuration: parseInt(longBreakInput.value) || 15,
+      autoStartBreaks: autoStartBreaks.checked,
+      autoStartWork: autoStartWork.checked,
+      notificationsEnabled: notificationsEnabled.checked
+    };
+    
+    chrome.runtime.sendMessage({ 
+      action: 'savePomodoroSettings', 
+      settings 
+    }, (response) => {
+      if (response && response.success) {
+        timerSettingsModal.style.display = 'none';
+        // Update timer display if not active
+        chrome.runtime.sendMessage({ action: 'getPomodoroState' }, (stateResponse) => {
+          if (stateResponse && stateResponse.state && !stateResponse.state.isActive) {
+            timerTime.textContent = `${settings.workDuration}:00`;
+          }
+        });
+      }
+    });
+  });
+
+  // Close modal on backdrop click
+  timerSettingsModal.addEventListener('click', (e) => {
+    if (e.target === timerSettingsModal) {
+      timerSettingsModal.style.display = 'none';
+    }
+  });
+
+  // Navigation
+  if (focusTimerBtn) {
+    focusTimerBtn.addEventListener('click', showFocusTimerView);
+  }
+  if (backFromFocusBtn) {
+    backFromFocusBtn.addEventListener('click', showMainView);
+  }
+
+  // Auto-refresh timer when view is active
+  setInterval(() => {
+    if (focusTimerView && focusTimerView.classList.contains('active')) {
+      loadTimerStats();
+    }
+  }, 30000); // Refresh stats every 30 seconds
+
+  // ============= END FOCUS TIMER FEATURES =============
 });

@@ -49,6 +49,7 @@
       <button id="historyBtn" class="btn-nav" title="Summary History">📚 History</button>
       <button id="analyticsBtn" class="btn-nav" title="Productivity Analytics">📊 Analytics</button>
       <button id="teamDashboardBtn" class="btn-nav" title="Team Dashboard">👥 Team</button>
+      <button id="focusTimerBtn" class="btn-nav" title="Focus Timer">⏱️ Focus</button>
     </div>
   </div>
 
@@ -148,6 +149,130 @@
       </div>
 
       <div id="teamStatsContent" class="team-stats-container"></div>
+    </div>
+  </div>
+
+  <!-- Focus Timer View -->
+  <div id="focusTimerView" class="view">
+    <div class="view-header">
+      <h2>Focus Timer</h2>
+      <button id="backFromFocusBtn" class="btn-icon back-btn">←</button>
+    </div>
+
+    <div class="view-content">
+      <!-- Timer Display -->
+      <div class="timer-container">
+        <div class="timer-display">
+          <div class="timer-progress-ring">
+            <svg width="200" height="200">
+              <circle class="timer-progress-ring-bg" cx="100" cy="100" r="90" />
+              <circle class="timer-progress-ring-fill" cx="100" cy="100" r="90" />
+            </svg>
+            <div class="timer-time" id="timerTime">25:00</div>
+          </div>
+        </div>
+
+        <div class="timer-session-info">
+          <div class="timer-type" id="timerType">Ready to Focus</div>
+          <div class="timer-session-count" id="timerSessionCount">🍅 Session 0/4</div>
+        </div>
+
+        <!-- Timer Controls -->
+        <div class="timer-controls">
+          <button id="startTimerBtn" class="btn btn-primary timer-btn">
+            <span>▶️ Start</span>
+          </button>
+          <button id="pauseTimerBtn" class="btn btn-secondary timer-btn" style="display: none;">
+            <span>⏸️ Pause</span>
+          </button>
+          <button id="resumeTimerBtn" class="btn btn-primary timer-btn" style="display: none;">
+            <span>▶️ Resume</span>
+          </button>
+          <button id="stopTimerBtn" class="btn btn-secondary timer-btn" style="display: none;">
+            <span>⏹️ Stop</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Today's Stats -->
+      <div class="timer-stats">
+        <h3>Today's Progress</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-icon">✓</div>
+            <div class="stat-info">
+              <div class="stat-value" id="todayPomodoros">0</div>
+              <div class="stat-label">Completed</div>
+            </div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-info">
+              <div class="stat-value" id="pomodoroGoal">8</div>
+              <div class="stat-label">Daily Goal</div>
+            </div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-info">
+              <div class="stat-value" id="focusTime">0h 0m</div>
+              <div class="stat-label">Focus Time</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Settings -->
+      <div class="timer-settings-quick">
+        <button id="timerSettingsBtn" class="btn btn-secondary btn-full-width">
+          ⚙️ Timer Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timer Settings Modal (overlay) -->
+  <div id="timerSettingsModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Timer Settings</h3>
+        <button id="closeSettingsBtn" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <label class="setting-label">Work Duration (minutes)</label>
+          <input type="number" id="workDurationInput" class="form-control" min="1" max="60" value="25">
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">Short Break (minutes)</label>
+          <input type="number" id="shortBreakInput" class="form-control" min="1" max="15" value="5">
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">Long Break (minutes)</label>
+          <input type="number" id="longBreakInput" class="form-control" min="5" max="30" value="15">
+        </div>
+        <div class="setting-group">
+          <label class="setting-toggle">
+            <input type="checkbox" id="autoStartBreaks">
+            <span>Auto-start breaks</span>
+          </label>
+        </div>
+        <div class="setting-group">
+          <label class="setting-toggle">
+            <input type="checkbox" id="autoStartWork">
+            <span>Auto-start work sessions</span>
+          </label>
+        </div>
+        <div class="setting-group">
+          <label class="setting-toggle">
+            <input type="checkbox" id="notificationsEnabled">
+            <span>Enable notifications</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="saveSettingsBtn" class="btn btn-primary btn-full-width">Save Settings</button>
+      </div>
     </div>
   </div>
 
