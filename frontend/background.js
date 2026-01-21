@@ -1,5 +1,8 @@
-const API_KEY = "AIzaSyAO5dd6v0uGvFoD_R4QInNV2cIlBiVVBP8";
-const BACKEND_URL = "https://holies-ravening-princess.ngrok-free.dev";
+// Load configuration
+// NOTE: For production, replace these values or use your own .env setup
+const API_KEY = "YOUR_GEMINI_API_KEY_HERE"; // TODO: Add your API key
+const BACKEND_URL = "http://localhost:3000"; // TODO: Update with your backend URL
+
 
 
 
@@ -366,7 +369,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const history = result.pomodoroHistory || [];
       const state = result.pomodoroState || {};
       
-      // Calculate today's stats
+  // Calculate today's stats
       const today = new Date().toISOString().split('T')[0];
       const todayPomodoros = history.filter(p => {
         const pDate = new Date(p.timestamp).toISOString().split('T')[0];
@@ -382,8 +385,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // ✅ AI Features API Handler
+  if (message.action === 'callGeminiAPI') {
+    (async () => {
+      try {
+        const result = await summarizeText(message.prompt);
+        sendResponse({ result });
+      } catch (error) {
+        sendResponse({ error: error.message });
+      }
+    })();
+    return true;
+  }
+
   return true;
 });
+
 
 
 
@@ -1097,3 +1114,21 @@ setInterval(() => {
 }, 60000); // Check every minute
 
 // ============= END POMODORO TIMER FEATURE =============
+
+// ============= AI FEATURES API HANDLER =============
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'callGeminiAPI') {
+    (async () => {
+      try {
+        const result = await summarizeText(message.prompt);
+        sendResponse({ result });
+      } catch (error) {
+        sendResponse({ error: error.message });
+      }
+    })();
+    return true;
+  }
+});
+
+// ============= END AI FEATURES API HANDLER =============
