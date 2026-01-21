@@ -808,4 +808,332 @@ function updateTimerUI(state) {
   }, 30000); // Refresh stats every 30 seconds
 
   // ============= END FOCUS TIMER FEATURES =============
+
+    // ============= AI FEATURES NAVIGATION =============
+
+  const aiFeaturesBtn = document.getElementById('aiFeaturesBtn');
+  const aiFeaturesView = document.getElementById('aiFeaturesView');
+  const backFromAIBtn = document.getElementById('backFromAIBtn');
+  const apiCallCount = document.getElementById('apiCallCount');
+  const apiUsageFill = document.getElementById('apiUsageFill');
+
+  // Show AI Features View
+  function showAIFeaturesView() {
+    aiFeaturesView.classList.add('active');
+    mainView.classList.remove('active');
+    historyView.classList.remove('active');
+    analyticsView.classList.remove('active');
+    teamDashboardView.classList.remove('active');
+    focusTimerView.classList.remove('active');
+    stopTimerUpdateLoop();
+    loadAPIUsage();
+  }
+
+  // Load API usage count
+  function loadAPIUsage() {
+    chrome.storage.local.get(['apiCallCount'], (result) => {
+      const count = result.apiCallCount || 0;
+      apiCallCount.textContent = count;
+      const percentage = (count / 1500) * 100;
+      apiUsageFill.style.width = `${Math.min(percentage, 100)}%`;
+    });
+  }
+
+  // Navigation handlers
+  if (aiFeaturesBtn) {
+    aiFeaturesBtn.addEventListener('click', showAIFeaturesView);
+  }
+  
+  if (backFromAIBtn) {
+    backFromAIBtn.addEventListener('click', showMainView);
+  }
+
+  // ============= END AI FEATURES NAVIGATION =============
+
+    // ============= AI FEATURES FUNCTIONALITY =============
+
+  const trainPredictionBtn = document.getElementById('trainPredictionBtn');
+  const generateInsightsBtn = document.getElementById('generateInsightsBtn');
+  const predictionResults = document.getElementById('predictionResults');
+  const insightsResults = document.getElementById('insightsResults');
+  const predictionStatus = document.getElementById('predictionStatus');
+  const insightsStatus = document.getElementById('insightsStatus');
+  const keyInsights = document.getElementById('keyInsights');
+  const improvements = document.getElementById('improvements');
+  const achievements = document.getElementById('achievements');
+  const demoModeToggle = document.getElementById('demoModeToggle');
+
+  let demoMode = false;
+
+  // Load demo mode setting
+  chrome.storage.local.get(['demoMode'], (result) => {
+    demoMode = result.demoMode || false;
+    demoModeToggle.checked = demoMode;
+  });
+
+  // Demo mode toggle
+  demoModeToggle.addEventListener('change', (e) => {
+    demoMode = e.target.checked;
+    chrome.storage.local.set({ demoMode });
+    
+    if (demoMode) {
+      alert('🎬 Demo Mode Enabled!\n\nAI features will now auto-generate insights daily.\nPerfect for presentations!');
+    }
+  });
+
+  // Increment API call counter
+  function incrementAPICallCount() {
+    chrome.storage.local.get(['apiCallCount'], (result) => {
+      const count = (result.apiCallCount || 0) + 1;
+      chrome.storage.local.set({ apiCallCount: count });
+      loadAPIUsage();
+    });
+  }
+
+  // Feature 1: Train Focus Prediction Model
+  trainPredictionBtn.addEventListener('click', async () => {
+    trainPredictionBtn.disabled = true;
+    trainPredictionBtn.innerHTML = '⏳ Training Model...';
+
+    try {
+      // Get analytics data
+      const analyticsData = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'getAnalytics' }, (response) => {
+          resolve(response?.data || {});
+        });
+      });
+
+      // Get historical distraction data
+      const historyData = await new Promise((resolve) => {
+        chrome.storage.local.get(['pageHistory', 'dailyStats'], (result) => {
+          resolve({
+            history: result.pageHistory || [],
+            stats: result.dailyStats || {}
+          });
+        });
+      });
+
+      // Build AI prompt
+      const prompt = `Analyze this user's browsing patterns and predict when they're most likely to get distracted:
+
+Productivity Score: ${analyticsData.productivityScore}%
+Total Distractions Today: ${analyticsData.distractionCount}
+Peak Distraction Hours: ${analyticsData.peakHours?.join(', ') || 'None'}
+Top Distracting Sites: ${analyticsData.topDistractions?.map(d => d.site).join(', ') || 'None'}
+
+Recent Activity: ${historyData.history.slice(-10).map(h => `${new Date(h.timestamp).getHours()}:00 - ${h.topic} (${h.category})`).join('\n')}
+
+Based on this data, predict:
+1. What time periods (e.g., "2:00 PM - 3:00 PM") they are at HIGH risk of distraction
+2. Why they get distracted at these times
+3. One actionable recommendation to prevent distractions
+
+Format your response as JSON:
+{
+  "highRiskPeriods": ["time range"],
+  "analysis": "brief explanation",
+  "recommendation": "specific advice"
+}`;
+
+      // Call Gemini API
+      incrementAPICallCount();
+      const prediction = await callGeminiAPI(prompt);
+
+      // Parse JSON response
+      const jsonMatch = prediction.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0]);
+        
+        // Display results
+        predictionResults.innerHTML = `
+          ${result.highRiskPeriods.map(period => `
+            <div class="prediction-item">
+              <span class="prediction-time">${period}</span>
+              <span class="prediction-risk high">⚠️ High Risk</span>
+            </div>
+          `).join('')}
+          <div class="prediction-insight">
+            💡 ${result.analysis}
+            <br><br>
+            <strong>Recommendation:</strong> ${result.recommendation}
+          </div>
+        `;
+        
+        predictionResults.style.display = 'block';
+        predictionStatus.textContent = 'Trained';
+        predictionStatus.classList.add('active');
+
+        // Save prediction
+        chrome.storage.local.set({ 
+          focusPrediction: result,
+          predictionTimestamp: Date.now()
+        });
+      } else {
+        throw new Error('Invalid AI response format');
+      }
+
+      trainPredictionBtn.innerHTML = '✓ Model Trained';
+      setTimeout(() => {
+        trainPredictionBtn.innerHTML = '🔄 Retrain Model';
+        trainPredictionBtn.disabled = false;
+      }, 2000);
+
+    } catch (error) {
+      console.error('Prediction training error:', error);
+      alert('❌ Training failed: ' + error.message);
+      trainPredictionBtn.innerHTML = '🔄 Train Prediction Model';
+      trainPredictionBtn.disabled = false;
+    }
+  });
+
+  // Feature 2: Generate AI Insights Report
+  generateInsightsBtn.addEventListener('click', async () => {
+    generateInsightsBtn.disabled = true;
+    generateInsightsBtn.innerHTML = '⏳ Generating Insights...';
+
+    try {
+      // Get analytics data
+      const analyticsData = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'getAnalytics' }, (response) => {
+          resolve(response?.data || {});
+        });
+      });
+
+      // Get pomodoro stats
+      const pomodoroStats = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'getPomodoroStats' }, (response) => {
+          resolve(response || {});
+        });
+      });
+
+      // Build AI prompt
+      const prompt = `Generate a personalized productivity report for this user:
+
+📊 Today's Metrics:
+- Productivity Score: ${analyticsData.productivityScore}%
+- Productive Time: ${Math.floor(analyticsData.productiveTime / 60)} minutes
+- Distractions: ${analyticsData.distractionCount}
+- Focus Sessions Completed: ${pomodoroStats.completedToday || 0}
+- Peak Distraction Hours: ${analyticsData.peakHours?.join(', ') || 'None'}
+- Top Distracting Sites: ${analyticsData.topDistractions?.map(d => `${d.site} (${d.count}x)`).join(', ') || 'None'}
+
+Current Focus Topic: ${analyticsData.currentFocus?.topic || 'None'}
+
+Generate insights in 3 sections:
+
+1. KEY INSIGHTS (2-3 positive observations)
+2. AREAS TO IMPROVE (2-3 specific weaknesses with data)
+3. ACHIEVEMENTS (2-3 accomplishments to celebrate)
+
+Format as JSON:
+{
+  "keyInsights": ["insight 1", "insight 2"],
+  "improvements": ["improvement 1", "improvement 2"],
+  "achievements": ["achievement 1", "achievement 2"]
+}
+
+Be specific, use the actual data, and be encouraging!`;
+
+      // Call Gemini API
+      incrementAPICallCount();
+      const insights = await callGeminiAPI(prompt);
+
+      // Parse JSON response
+      const jsonMatch = insights.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0]);
+        
+        // Display results
+        keyInsights.innerHTML = '<ul>' + result.keyInsights.map(i => `<li>${i}</li>`).join('') + '</ul>';
+        improvements.innerHTML = '<ul>' + result.improvements.map(i => `<li>${i}</li>`).join('') + '</ul>';
+        achievements.innerHTML = '<ul>' + result.achievements.map(i => `<li>${i}</li>`).join('') + '</ul>';
+        
+        insightsResults.style.display = 'block';
+        insightsStatus.textContent = 'Generated';
+        insightsStatus.classList.add('active');
+
+        // Save insights
+        chrome.storage.local.set({ 
+          aiInsights: result,
+          insightsTimestamp: Date.now()
+        });
+      } else {
+        throw new Error('Invalid AI response format');
+      }
+
+      generateInsightsBtn.innerHTML = '✓ Insights Generated';
+      setTimeout(() => {
+        generateInsightsBtn.innerHTML = '📊 Regenerate Insights';
+        generateInsightsBtn.disabled = false;
+      }, 2000);
+
+    } catch (error) {
+      console.error('Insights generation error:', error);
+      alert('❌ Generation failed: ' + error.message);
+      generateInsightsBtn.innerHTML = '📊 Generate AI Insights';
+      generateInsightsBtn.disabled = false;
+    }
+  });
+
+  // Helper: Call Gemini API
+  async function callGeminiAPI(prompt) {
+    const response = await chrome.runtime.sendMessage({
+      action: 'callGeminiAPI',
+      prompt: prompt
+    });
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    return response.result;
+  }
+
+  // Load cached predictions and insights on view open
+  function loadCachedAIFeatures() {
+    chrome.storage.local.get(['focusPrediction', 'aiInsights'], (result) => {
+      // Load cached prediction
+      if (result.focusPrediction) {
+        const pred = result.focusPrediction;
+        predictionResults.innerHTML = `
+          ${pred.highRiskPeriods.map(period => `
+            <div class="prediction-item">
+              <span class="prediction-time">${period}</span>
+              <span class="prediction-risk high">⚠️ High Risk</span>
+            </div>
+          `).join('')}
+          <div class="prediction-insight">
+            💡 ${pred.analysis}
+            <br><br>
+            <strong>Recommendation:</strong> ${pred.recommendation}
+          </div>
+        `;
+        predictionResults.style.display = 'block';
+        predictionStatus.textContent = 'Trained';
+        predictionStatus.classList.add('active');
+      }
+
+      // Load cached insights
+      if (result.aiInsights) {
+        const insights = result.aiInsights;
+        keyInsights.innerHTML = '<ul>' + insights.keyInsights.map(i => `<li>${i}</li>`).join('') + '</ul>';
+        improvements.innerHTML = '<ul>' + insights.improvements.map(i => `<li>${i}</li>`).join('') + '</ul>';
+        achievements.innerHTML = '<ul>' + insights.achievements.map(i => `<li>${i}</li>`).join('') + '</ul>';
+        insightsResults.style.display = 'block';
+        insightsStatus.textContent = 'Generated';
+        insightsStatus.classList.add('active');
+      }
+    });
+  }
+
+  // Load cached features when opening AI view
+  const originalShowAIFeaturesView = showAIFeaturesView;
+  showAIFeaturesView = function() {
+    originalShowAIFeaturesView();
+    loadCachedAIFeatures();
+  };
+
+  // ============= END AI FEATURES FUNCTIONALITY =============
+
+
 });

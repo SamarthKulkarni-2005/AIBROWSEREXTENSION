@@ -1,0 +1,30 @@
+# Environment variables and API keys
+.env
+*.env
+frontend/.env
+Backend/.env
+Backend/s.env
+
+# Node modules
+node_modules/
+Backend/node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Extension build files
+*.crx
+*.pem
+*.zip
+
+# Logs
+*.log
+npm-debug.log*

@@ -1,6 +1,6 @@
 // Load configuration
 // NOTE: For production, replace these values or use your own .env setup
-const API_KEY = "YOUR_GEMINI_API_KEY_HERE"; // TODO: Add your API key
+const API_KEY = "AIzaSyAaeegrMT3dqQW4cA8Bc5VPrQIOj1KOBHo"; // TODO: Add your API key
 const BACKEND_URL = "http://localhost:3000"; // TODO: Update with your backend URL
 
 
