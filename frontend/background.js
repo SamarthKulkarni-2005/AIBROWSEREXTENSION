@@ -1,6 +1,6 @@
 // Load configuration
 // NOTE: For production, replace these values or use your own .env setup
-const API_KEY = "AIzaSyAaeegrMT3dqQW4cA8Bc5VPrQIOj1KOBHo"; // TODO: Add your API key
+const API_KEY = "YOUR_API_KEY"; // TODO: Add your API key
 const BACKEND_URL = "http://localhost:3000"; // TODO: Update with your backend URL
 
 // Cache for page classifications to reduce API calls
@@ -128,71 +128,100 @@ chrome.storage.local.get(['trackingEnabled'], (result) => {
 
 // ============= MAIN MESSAGE HANDLER =============
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Summarize
-  if (message.action === "summarize") {
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      if (!tabs || !tabs[0]) {
+ // Summarize
+if (message.action === "summarize") {
+  // NEW: Get pageContent directly from popup.js
+  const { prompt, pageContent, url } = message;
+  
+  // If pageContent is provided (new method from popup.js)
+  if (pageContent) {
+    const formatInstruction =
+      "\n\nIMPORTANT: Provide your response in clean, plain text format. Do not use markdown formatting, asterisks (*), hashtags (#), bold, italics, or any special characters for emphasis. Use simple paragraphs and natural language only.";
+
+    let promptText;
+    if (prompt && prompt.trim().length > 0) {
+      promptText = `Here is the content from ${url || 'this page'}:\n\n${pageContent}\n\nUser question: ${prompt}${formatInstruction}`;
+    } else {
+      promptText = `Summarize this webpage content from ${url || 'this page'}:\n\n${pageContent}${formatInstruction}`;
+    }
+
+    summarizeText(promptText)
+      .then((summary) => {
         chrome.runtime.sendMessage({
           action: "show_summary",
-          summary: "No active tab found."
+          summary: summary
         });
-        return;
-      }
-
-      const tab = tabs[0];
-      const url = tab.url;
-
-      if (url.startsWith('chrome://') || url.startsWith('edge://') || url.startsWith('about:')) {
+      })
+      .catch((error) => {
         chrome.runtime.sendMessage({
           action: "show_summary",
-          summary: "Cannot access browser internal pages. Please try on a regular webpage."
+          summary: "Error generating summary: " + error.message
         });
-        return;
-      }
-
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: () => document.body.innerText || ""
-        }).then((results) => {
-          if (!results || !results[0] || !results[0].result) {
-            throw new Error("Could not extract page content");
-          }
-
-          const pageText = results[0].result;
-          let promptText;
-
-          const formatInstruction =
-            "\n\nIMPORTANT: Provide your response in clean, plain text format. Do not use markdown formatting, asterisks (*), hashtags (#), bold, italics, or any special characters for emphasis. Use simple paragraphs and natural language only.";
-
-          if (message.prompt && message.prompt.trim().length > 0) {
-            promptText = `Here is the content from ${url}:\n\n${pageText}\n\nUser question: ${message.prompt}${formatInstruction}`;
-          } else {
-            promptText = `Summarize this webpage content from ${url}:\n\n${pageText}${formatInstruction}`;
-          }
-
-          summarizeText(promptText)
-            .then((summary) => {
-              chrome.runtime.sendMessage({
-                action: "show_summary",
-                summary: summary
-              });
-            })
-            .catch((error) => {
-              chrome.runtime.sendMessage({
-                action: "show_summary",
-                summary: "Error generating summary: " + error.message
-              });
-            });
-        });
-      } catch (error) {
-        chrome.runtime.sendMessage({
-          action: "show_summary",
-          summary: "Error: Could not extract page content. " + error.message
-        });
-      }
-    });
+      });
+    
+    return true;
   }
+  
+  // FALLBACK: Old method (if pageContent not provided)
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    if (!tabs || !tabs[0]) {
+      chrome.runtime.sendMessage({
+        action: "show_summary",
+        summary: "No active tab found."
+      });
+      return;
+    }
+
+    const tab = tabs[0];
+    const tabUrl = tab.url;
+
+    if (tabUrl.startsWith('chrome://') || tabUrl.startsWith('edge://') || tabUrl.startsWith('about:')) {
+      chrome.runtime.sendMessage({
+        action: "show_summary",
+        summary: "Cannot access browser internal pages. Please try on a regular webpage."
+      });
+      return;
+    }
+
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => document.body.innerText || ""
+      });
+      
+      if (!results || !results[0] || !results[0].result) {
+        throw new Error("Could not extract page content");
+      }
+
+      const pageText = results[0].result;
+      let promptText;
+
+      const formatInstruction =
+        "\n\nIMPORTANT: Provide your response in clean, plain text format. Do not use markdown formatting, asterisks (*), hashtags (#), bold, italics, or any special characters for emphasis. Use simple paragraphs and natural language only.";
+
+      if (prompt && prompt.trim().length > 0) {
+        promptText = `Here is the content from ${tabUrl}:\n\n${pageText}\n\nUser question: ${prompt}${formatInstruction}`;
+      } else {
+        promptText = `Summarize this webpage content from ${tabUrl}:\n\n${pageText}${formatInstruction}`;
+      }
+
+      const summary = await summarizeText(promptText);
+      chrome.runtime.sendMessage({
+        action: "show_summary",
+        summary: summary
+      });
+      
+    } catch (error) {
+      chrome.runtime.sendMessage({
+        action: "show_summary",
+        summary: "Error: Could not extract page content. " + error.message
+      });
+    }
+  });
+  
+  return true;
+}
+
 
   // Toggle tracking
   if (message.action === "toggleTracking") {

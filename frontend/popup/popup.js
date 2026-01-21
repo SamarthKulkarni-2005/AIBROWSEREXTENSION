@@ -225,16 +225,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // Summarize
-  btn.addEventListener('click', () => {
-    if (!summaryBox || !loading || !customPrompt) return;
-    summaryBox.textContent = '';
-    loading.style.display = 'flex';
-    summaryActions.style.display = 'none';
+  // Summarize
+btn.addEventListener('click', async () => {
+  if (!summaryBox || !loading || !customPrompt) return;
+  summaryBox.textContent = '';
+  loading.style.display = 'flex';
+  summaryActions.style.display = 'none';
 
-
+  try {
     const prompt = customPrompt.value.trim();
-    chrome.runtime.sendMessage({ action: 'summarize', prompt: prompt });
-  });
+    
+    // Get active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    if (!tab || !tab.id) {
+      throw new Error('No active tab found');
+    }
+
+    // Execute script to get page content
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        // Extract text content from page
+        return document.body.innerText || document.body.textContent || '';
+      }
+    });
+
+    const pageContent = results[0]?.result;
+
+    if (!pageContent || pageContent.trim().length === 0) {
+      throw new Error('Could not extract page content. Page might be empty or restricted.');
+    }
+
+    // Send to background for AI summarization
+    chrome.runtime.sendMessage({ 
+      action: 'summarize', 
+      prompt: prompt,
+      pageContent: pageContent 
+    });
+
+  } catch (error) {
+    console.error('Summarization error:', error);
+    loading.style.display = 'none';
+    summaryBox.textContent = 'Error: ' + error.message;
+    
+    if (error.message.includes('Cannot access')) {
+      summaryBox.textContent += '\n\nNote: Some pages (like chrome:// or chrome-extension://) cannot be accessed.';
+    }
+  }
+});
+
 
 
   // Show returned summary
