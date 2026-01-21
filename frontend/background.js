@@ -3,14 +3,9 @@
 const API_KEY = "AIzaSyAaeegrMT3dqQW4cA8Bc5VPrQIOj1KOBHo"; // TODO: Add your API key
 const BACKEND_URL = "http://localhost:3000"; // TODO: Update with your backend URL
 
-
-
-
 // Cache for page classifications to reduce API calls
 const classificationCache = new Map();
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
-
-
 
 // Known site categories for instant classification (no API needed)
 const KNOWN_SITES = {
@@ -30,27 +25,19 @@ const KNOWN_SITES = {
   'medium.com':       { category: 'educational',   difficulty: 'medium', isDistraction: false }
 };
 
-
-
 let currentPageData = null;
 let previousPageData = null;
 let sessionStartTime = Date.now();
 let trackingEnabled = false;
 
-
-
 // ============= BACKEND INTEGRATION =============
 let userId = null;
-
-
 
 // Generate unique user ID on first run
 chrome.storage.local.get(['userId'], (result) => {
   if (!result.userId) {
     userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     chrome.storage.local.set({ userId });
-
-
 
     // Register with backend
     fetch(`${BACKEND_URL}/api/register-user`, {
@@ -66,15 +53,11 @@ chrome.storage.local.get(['userId'], (result) => {
   }
 });
 
-
-
 /**
  * Send distraction data to backend for team analytics
  */
 async function syncDistractionToBackend(distraction) {
   if (!userId) return;
-
-
 
   try {
     await fetch(`${BACKEND_URL}/api/track-distraction`, {
@@ -95,25 +78,17 @@ async function syncDistractionToBackend(distraction) {
   }
 }
 
-
-
 /**
  * Send daily analytics to backend (call this once per day)
  */
 async function syncAnalyticsToBackend() {
   if (!userId) return;
 
-
-
   const today = new Date().toISOString().split('T')[0];
   const result = await chrome.storage.local.get(['dailyStats']);
   const todayStats = result.dailyStats?.[today];
 
-
-
   if (!todayStats) return;
-
-
 
   try {
     await fetch(`${BACKEND_URL}/api/save-analytics`, {
@@ -134,34 +109,24 @@ async function syncAnalyticsToBackend() {
   }
 }
 
-
-
 // Sync analytics every hour
 setInterval(() => {
   syncAnalyticsToBackend();
 }, 60 * 60 * 1000);
-
-
 
 // Sync once on startup
 chrome.runtime.onStartup.addListener(() => {
   syncAnalyticsToBackend();
 });
 
-
-
 // ============= END BACKEND INTEGRATION =============
-
-
 
 // Load tracking preference on startup
 chrome.storage.local.get(['trackingEnabled'], (result) => {
   trackingEnabled = result.trackingEnabled || false;
 });
 
-
-
-// ============= EXISTING SUMMARIZATION FEATURE =============
+// ============= MAIN MESSAGE HANDLER =============
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Summarize
   if (message.action === "summarize") {
@@ -174,12 +139,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
 
-
-
       const tab = tabs[0];
       const url = tab.url;
-
-
 
       if (url.startsWith('chrome://') || url.startsWith('edge://') || url.startsWith('about:')) {
         chrome.runtime.sendMessage({
@@ -188,8 +149,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         return;
       }
-
-
 
       try {
         await chrome.scripting.executeScript({
@@ -200,25 +159,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             throw new Error("Could not extract page content");
           }
 
-
-
           const pageText = results[0].result;
           let promptText;
 
-
-
           const formatInstruction =
             "\n\nIMPORTANT: Provide your response in clean, plain text format. Do not use markdown formatting, asterisks (*), hashtags (#), bold, italics, or any special characters for emphasis. Use simple paragraphs and natural language only.";
-
-
 
           if (message.prompt && message.prompt.trim().length > 0) {
             promptText = `Here is the content from ${url}:\n\n${pageText}\n\nUser question: ${message.prompt}${formatInstruction}`;
           } else {
             promptText = `Summarize this webpage content from ${url}:\n\n${pageText}${formatInstruction}`;
           }
-
-
 
           summarizeText(promptText)
             .then((summary) => {
@@ -243,16 +194,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
   }
 
-
-
   // Toggle tracking
   if (message.action === "toggleTracking") {
     trackingEnabled = message.enabled;
     chrome.storage.local.set({ trackingEnabled });
     sendResponse({ success: true });
   }
-
-
 
   // Get analytics data
   if (message.action === "getAnalytics") {
@@ -261,8 +208,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
-
-
 
   // Get team dashboard
   if (message.action === "getTeamDashboard") {
@@ -274,11 +219,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         });
 
-
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
-
 
         const data = await res.json();
         sendResponse({ data });
@@ -288,11 +231,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     })();
 
-
     return true;
   }
-
-
 
   // Clear tracking data
   if (message.action === "clearTrackingData") {
@@ -369,7 +309,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const history = result.pomodoroHistory || [];
       const state = result.pomodoroState || {};
       
-  // Calculate today's stats
+      // Calculate today's stats
       const today = new Date().toISOString().split('T')[0];
       const todayPomodoros = history.filter(p => {
         const pDate = new Date(p.timestamp).toISOString().split('T')[0];
@@ -390,6 +330,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const result = await summarizeText(message.prompt);
+        
+        // ⭐ NEW: If this is a prediction request, schedule smart alerts
+        if (message.type === 'prediction') {
+          scheduleSmartAlerts(result);
+        }
+        
         sendResponse({ result });
       } catch (error) {
         sendResponse({ error: error.message });
@@ -401,9 +347,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-
-
-
+// ============= GEMINI API FUNCTION =============
 async function summarizeText(text) {
   try {
     // Limit text to 10,000 characters to avoid token limits
@@ -453,17 +397,11 @@ async function summarizeText(text) {
   }
 }
 
-
-
-// ============= NEW DISTRACTION TRACKING FEATURES =============
-
-
+// ============= DISTRACTION TRACKING FEATURES =============
 
 // Track tab activation (switching tabs)
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   if (!trackingEnabled) return;
-
-
 
   try {
     const tab = await chrome.tabs.get(activeInfo.tabId);
@@ -475,13 +413,9 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   }
 });
 
-
-
 // Track navigation in same tab
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!trackingEnabled) return;
-
-
 
   if (changeInfo.status === 'complete' && tab.url) {
     if (!tab.url.startsWith('chrome://') && !tab.url.startsWith('edge://')) {
@@ -490,12 +424,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-
-
 async function handlePageVisit(url, title, tabId) {
   const now = Date.now();
-
-
 
   // Save previous page duration
   if (currentPageData) {
@@ -503,12 +433,8 @@ async function handlePageVisit(url, title, tabId) {
     await savePageVisit(currentPageData);
   }
 
-
-
   // Classify new page
   const classification = await classifyPage(url, title, tabId);
-
-
 
   previousPageData = currentPageData;
   currentPageData = {
@@ -519,14 +445,10 @@ async function handlePageVisit(url, title, tabId) {
     duration: 0
   };
 
-
-
   // Detect distraction
   if (previousPageData) {
     const distraction = detectDistraction(previousPageData, currentPageData);
     currentPageData.distraction = distraction;
-
-
 
     // Notify user if distraction detected
     if (distraction.isDistraction) {
@@ -535,15 +457,11 @@ async function handlePageVisit(url, title, tabId) {
         data: distraction
       });
 
-
-
       // Sync to backend
       syncDistractionToBackend(distraction);
     }
   }
 }
-
-
 
 function getHostname(url) {
   try {
@@ -553,12 +471,8 @@ function getHostname(url) {
   }
 }
 
-
-
 async function classifyPage(url, title, tabId) {
   const hostname = getHostname(url);
-
-
 
   // Check known sites first (instant, no API call)
   if (KNOWN_SITES[hostname]) {
@@ -569,16 +483,12 @@ async function classifyPage(url, title, tabId) {
     };
   }
 
-
-
-  // Check in‑memory cache
+  // Check in-memory cache
   const cacheKey = hostname;
   const cached = classificationCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp) < CACHE_EXPIRY) {
     return { ...cached.data, source: 'cache' };
   }
-
-
 
   // Check persistent cache in storage
   const storageCache = await chrome.storage.local.get(['classificationCache']);
@@ -590,8 +500,6 @@ async function classifyPage(url, title, tabId) {
     }
   }
 
-
-
   // Extract page content for AI classification
   try {
     const results = await chrome.scripting.executeScript({
@@ -602,25 +510,17 @@ async function classifyPage(url, title, tabId) {
       }
     });
 
-
-
     const pageText = results[0]?.result || "";
     const classification = await classifyWithAI(url, title, pageText);
-
-
 
     // Cache the result
     const cacheEntry = { data: classification, timestamp: Date.now() };
     classificationCache.set(cacheKey, cacheEntry);
 
-
-
     // Save to persistent storage
     const updatedCache = storageCache.classificationCache || {};
     updatedCache[cacheKey] = cacheEntry;
     chrome.storage.local.set({ classificationCache: updatedCache });
-
-
 
     return { ...classification, source: 'ai' };
   } catch (error) {
@@ -636,18 +536,12 @@ async function classifyPage(url, title, tabId) {
   }
 }
 
-
-
 async function classifyWithAI(url, title, pageText) {
   const prompt = `Analyze this webpage and classify it. Respond ONLY with valid JSON, no other text:
-
-
 
 URL: ${url}
 Title: ${title}
 Content snippet: ${pageText}
-
-
 
 Response format:
 {
@@ -656,8 +550,6 @@ Response format:
   "category": "work/educational/entertainment/social/news/shopping/other",
   "isDistraction": true/false
 }`;
-
-
 
   try {
     const response = await summarizeText(prompt);
@@ -677,8 +569,6 @@ Response format:
   }
 }
 
-
-
 function detectDistraction(previousPage, currentPage) {
   // Quick distraction detection based on category
   if (currentPage.isDistraction) {
@@ -691,13 +581,9 @@ function detectDistraction(previousPage, currentPage) {
     };
   }
 
-
-
   // Context switch (work/educational → entertainment/social)
   const productiveCategories = ['work', 'educational'];
   const distractingCategories = ['entertainment', 'social'];
-
-
 
   if (productiveCategories.includes(previousPage.category) &&
       distractingCategories.includes(currentPage.category)) {
@@ -710,8 +596,6 @@ function detectDistraction(previousPage, currentPage) {
     };
   }
 
-
-
   // Difficulty avoidance (hard → easy)
   if (previousPage.difficulty === 'hard' && currentPage.difficulty === 'easy') {
     return {
@@ -723,8 +607,6 @@ function detectDistraction(previousPage, currentPage) {
     };
   }
 
-
-
   return {
     isDistraction: false,
     type: null,
@@ -732,22 +614,16 @@ function detectDistraction(previousPage, currentPage) {
   };
 }
 
-
-
 async function savePageVisit(pageData) {
   const result = await chrome.storage.local.get(['pageHistory', 'dailyStats']);
   const pageHistory = result.pageHistory || [];
   const dailyStats = result.dailyStats || {};
-
-
 
   // Add to history (keep last 500 entries)
   pageHistory.push(pageData);
   if (pageHistory.length > 500) {
     pageHistory.shift();
   }
-
-
 
   // Update daily stats
   const today = new Date().toISOString().split('T')[0];
@@ -762,22 +638,14 @@ async function savePageVisit(pageData) {
     };
   }
 
-
-
   dailyStats[today].totalTime += pageData.duration;
-
-
 
   if (pageData.distraction && pageData.distraction.isDistraction) {
     dailyStats[today].distractionTime += pageData.duration;
     dailyStats[today].distractionCount += 1;
 
-
-
     const hour = new Date(pageData.timestamp).getHours();
     dailyStats[today].hourlyDistractions[hour] += 1;
-
-
 
     const hostname = getHostname(pageData.url);
     dailyStats[today].commonDistractions[hostname] =
@@ -786,12 +654,8 @@ async function savePageVisit(pageData) {
     dailyStats[today].productiveTime += pageData.duration;
   }
 
-
-
   await chrome.storage.local.set({ pageHistory, dailyStats });
 }
-
-
 
 async function getAnalyticsData() {
   const result = await chrome.storage.local.get(['pageHistory', 'dailyStats']);
@@ -805,13 +669,9 @@ async function getAnalyticsData() {
     commonDistractions: {}
   };
 
-
-
   const productivityScore = todayStats.totalTime > 0
     ? Math.round((todayStats.productiveTime / todayStats.totalTime) * 100)
     : 100;
-
-
 
   const peakHours = todayStats.hourlyDistractions
     .map((count, hour) => ({ hour, count }))
@@ -820,14 +680,10 @@ async function getAnalyticsData() {
     .slice(0, 3)
     .map(h => h.hour);
 
-
-
   const topDistractions = Object.entries(todayStats.commonDistractions)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([site, count]) => ({ site, count }));
-
-
 
   return {
     productivityScore,
@@ -844,8 +700,6 @@ async function getAnalyticsData() {
     } : null
   };
 }
-
-
 
 // ============= POMODORO TIMER FEATURE =============
 
@@ -1113,22 +967,95 @@ setInterval(() => {
   }
 }, 60000); // Check every minute
 
-// ============= END POMODORO TIMER FEATURE =============
+// ============= SMART ALERT SYSTEM =============
 
-// ============= AI FEATURES API HANDLER =============
+// Smart Alert System - Schedule notifications for high-risk hours
+function scheduleSmartAlerts(predictionText) {
+  // Extract the high-risk hour from prediction (e.g., "17:00" or "5 PM")
+  const hourMatch = predictionText.match(/(\d{1,2}):00|(\d{1,2})\s*PM|(\d{1,2})\s*AM/i);
+  
+  if (!hourMatch) {
+    console.log('No specific hour found in prediction');
+    return;
+  }
+  
+  let highRiskHour = parseInt(hourMatch[1] || hourMatch[2] || hourMatch[3]);
+  
+  // Convert PM to 24-hour format
+  if (predictionText.includes('PM') && highRiskHour < 12) {
+    highRiskHour += 12;
+  }
+  
+  console.log('High-risk hour detected:', highRiskHour);
+  
+  // Schedule alert 10 minutes before the high-risk hour
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinutes = now.getMinutes();
+  
+  // Calculate alert time (10 mins before risk hour)
+  let alertHour = highRiskHour;
+  let alertMinutes = 50; // 10 mins before the hour
+  
+  // If we need to alert in the previous hour
+  if (alertMinutes < 0) {
+    alertHour -= 1;
+    alertMinutes = 50;
+  }
+  
+  // Calculate minutes until alert
+  let minutesUntilAlert;
+  if (alertHour > currentHour || (alertHour === currentHour && alertMinutes > currentMinutes)) {
+    // Alert is today
+    minutesUntilAlert = (alertHour - currentHour) * 60 + (alertMinutes - currentMinutes);
+  } else {
+    // Alert is tomorrow
+    minutesUntilAlert = (24 - currentHour + alertHour) * 60 + (alertMinutes - currentMinutes);
+  }
+  
+  // Create alarm
+  chrome.alarms.create('focusAlert', {
+    delayInMinutes: minutesUntilAlert
+  });
+  
+  // Store prediction details
+  chrome.storage.local.set({
+    scheduledAlert: {
+      hour: highRiskHour,
+      prediction: predictionText,
+      scheduled: true
+    }
+  });
+  
+  console.log(`Alert scheduled in ${minutesUntilAlert} minutes for hour ${highRiskHour}`);
+}
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'callGeminiAPI') {
-    (async () => {
-      try {
-        const result = await summarizeText(message.prompt);
-        sendResponse({ result });
-      } catch (error) {
-        sendResponse({ error: error.message });
+// Listen for alarms
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'focusAlert') {
+    chrome.storage.local.get(['scheduledAlert'], (data) => {
+      if (data.scheduledAlert && data.scheduledAlert.scheduled) {
+        // Create notification
+        chrome.notifications.create('focusNotification', {
+          type: 'basic',
+          iconUrl: 'icon.png',
+          title: '⚠️ Focus Alert - High Distraction Risk!',
+          message: `AI predicted high distraction risk in 10 minutes. Stay focused and avoid Instagram/YouTube!`,
+          priority: 2,
+          requireInteraction: true
+        });
+        
+        console.log('Focus alert notification sent!');
       }
-    })();
-    return true;
+    });
   }
 });
 
-// ============= END AI FEATURES API HANDLER =============
+// Handle notification clicks
+chrome.notifications.onClicked.addListener((notificationId) => {
+  if (notificationId === 'focusNotification') {
+    // Open extension popup
+    chrome.action.openPopup();
+    chrome.notifications.clear(notificationId);
+  }
+});

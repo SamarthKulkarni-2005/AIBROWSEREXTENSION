@@ -937,7 +937,8 @@ Format your response as JSON:
 
       // Call Gemini API
       incrementAPICallCount();
-      const prediction = await callGeminiAPI(prompt);
+      const prediction = await callGeminiAPI(prompt, 'prediction');
+
 
       // Parse JSON response
       const jsonMatch = prediction.match(/\{[\s\S]*\}/);
@@ -1076,11 +1077,14 @@ Be specific, use the actual data, and be encouraging!`;
   });
 
   // Helper: Call Gemini API
-  async function callGeminiAPI(prompt) {
-    const response = await chrome.runtime.sendMessage({
-      action: 'callGeminiAPI',
-      prompt: prompt
-    });
+// Helper: Call Gemini API
+async function callGeminiAPI(prompt, type = null) {
+  const response = await chrome.runtime.sendMessage({
+    action: 'callGeminiAPI',
+    prompt: prompt,
+    type: type  // ⭐ ADD THIS LINE
+  });
+
 
     if (response.error) {
       throw new Error(response.error);
